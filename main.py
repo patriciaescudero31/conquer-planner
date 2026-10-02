@@ -1,3 +1,26 @@
+import json
+from pathlib import Path
+
+
+ARCHIVO_TAREAS = Path("tareas.json")
+
+
+def cargar_tareas():
+    if not ARCHIVO_TAREAS.exists():
+        return []
+
+    try:
+        with ARCHIVO_TAREAS.open("r", encoding="utf-8") as archivo:
+            return json.load(archivo)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def guardar_tareas(tareas):
+    with ARCHIVO_TAREAS.open("w", encoding="utf-8") as archivo:
+        json.dump(tareas, archivo, ensure_ascii=False, indent=2)
+
+
 def mostrar_cabecera():
     print("===================================")
     print("       CONQUER PLANNER")
@@ -41,6 +64,7 @@ def añadir_tarea(tareas):
         return
 
     tareas.append(nombre)
+    guardar_tareas(tareas)
 
     print()
     print("Tarea añadida correctamente.")
@@ -64,7 +88,7 @@ def mostrar_tareas(tareas):
 def main():
     mostrar_cabecera()
 
-    tareas = []
+    tareas = cargar_tareas()
 
     while True:
         mostrar_menu()
