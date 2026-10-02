@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -37,10 +37,7 @@ def mostrar_objetivo(planificacion):
     print("OBJETIVO")
     print("-----------------------------------")
     print("Terminar el máster")
-    print(
-        f"Fecha objetivo: "
-        f"{planificacion['fecha_objetivo']}"
-    )
+    print(f"Fecha objetivo: {planificacion['fecha_objetivo']}")
     print()
 
 
@@ -57,7 +54,8 @@ def mostrar_menu():
     print("6. Ver progreso")
     print("7. Configurar planificación")
     print("8. Ver disponibilidad")
-    print("9. Salir")
+    print("9. Ver horas hasta el objetivo")
+    print("10. Salir")
     print()
 
 
@@ -66,11 +64,7 @@ def cargar_tareas():
         return []
 
     try:
-        with open(
-            ARCHIVO_TAREAS,
-            "r",
-            encoding="utf-8",
-        ) as archivo:
+        with open(ARCHIVO_TAREAS, "r", encoding="utf-8") as archivo:
             datos = json.load(archivo)
 
     except (json.JSONDecodeError, OSError):
@@ -92,31 +86,16 @@ def cargar_tareas():
 
         elif isinstance(tarea, dict):
             tareas.append({
-                "nombre": str(
-                    tarea.get("nombre", "")
-                ).strip(),
-
+                "nombre": str(tarea.get("nombre", "")).strip(),
                 "fecha_limite": str(
                     tarea.get("fecha_limite", "")
                 ).strip(),
-
-                "prioridad": tarea.get(
-                    "prioridad",
-                    "Media",
-                ),
-
+                "prioridad": tarea.get("prioridad", "Media"),
                 "categoria": str(
-                    tarea.get(
-                        "categoria",
-                        "General",
-                    )
+                    tarea.get("categoria", "General")
                 ).strip(),
-
                 "completada": bool(
-                    tarea.get(
-                        "completada",
-                        False,
-                    )
+                    tarea.get("completada", False)
                 ),
             })
 
@@ -125,11 +104,7 @@ def cargar_tareas():
 
 def guardar_tareas(tareas):
     try:
-        with open(
-            ARCHIVO_TAREAS,
-            "w",
-            encoding="utf-8",
-        ) as archivo:
+        with open(ARCHIVO_TAREAS, "w", encoding="utf-8") as archivo:
             json.dump(
                 tareas,
                 archivo,
@@ -139,10 +114,7 @@ def guardar_tareas(tareas):
 
     except OSError:
         print()
-        print(
-            "Error: no se han podido guardar "
-            "las tareas."
-        )
+        print("Error: no se han podido guardar las tareas.")
         print()
 
 
@@ -175,10 +147,7 @@ def cargar_planificacion():
 
     except (json.JSONDecodeError, OSError):
         print()
-        print(
-            "Aviso: no se ha podido cargar "
-            "la planificación."
-        )
+        print("Aviso: no se ha podido cargar la planificación.")
         print()
         return crear_planificacion_por_defecto()
 
@@ -191,9 +160,7 @@ def cargar_planificacion():
         )
 
         if validar_fecha(fecha_objetivo):
-            planificacion["fecha_objetivo"] = (
-                fecha_objetivo
-            )
+            planificacion["fecha_objetivo"] = fecha_objetivo
 
         disponibilidad = datos.get(
             "disponibilidad",
@@ -202,18 +169,13 @@ def cargar_planificacion():
 
         if isinstance(disponibilidad, dict):
             for dia in DIAS_SEMANA:
-                valor = disponibilidad.get(
-                    dia,
-                    0.0,
-                )
+                valor = disponibilidad.get(dia, 0.0)
 
                 try:
                     valor = float(valor)
 
                     if valor >= 0:
-                        planificacion[
-                            "disponibilidad"
-                        ][dia] = valor
+                        planificacion["disponibilidad"][dia] = valor
 
                 except (TypeError, ValueError):
                     pass
@@ -237,10 +199,7 @@ def guardar_planificacion(planificacion):
 
     except OSError:
         print()
-        print(
-            "Error: no se ha podido guardar "
-            "la planificación."
-        )
+        print("Error: no se ha podido guardar la planificación.")
         print()
 
 
@@ -249,10 +208,7 @@ def validar_fecha(fecha):
         return True
 
     try:
-        datetime.strptime(
-            fecha,
-            "%d/%m/%Y",
-        )
+        datetime.strptime(fecha, "%d/%m/%Y")
         return True
 
     except ValueError:
@@ -267,9 +223,7 @@ def pedir_numero_tarea(tareas, mensaje):
         return None
 
     try:
-        numero = int(
-            input(mensaje).strip()
-        )
+        numero = int(input(mensaje).strip())
 
     except ValueError:
         print()
@@ -279,9 +233,7 @@ def pedir_numero_tarea(tareas, mensaje):
 
     if numero < 1 or numero > len(tareas):
         print()
-        print(
-            "Ese número de tarea no existe."
-        )
+        print("Ese número de tarea no existe.")
         print()
         return None
 
@@ -295,14 +247,9 @@ def pedir_prioridad():
     print("2. Media")
     print("3. Baja")
 
-    opcion = input(
-        "Selecciona prioridad: "
-    ).strip()
+    opcion = input("Selecciona prioridad: ").strip()
 
-    return PRIORIDADES.get(
-        opcion,
-        "Media",
-    )
+    return PRIORIDADES.get(opcion, "Media")
 
 
 def añadir_tarea(tareas):
@@ -310,32 +257,24 @@ def añadir_tarea(tareas):
     print("AÑADIR TAREA")
     print("-----------------------------------")
 
-    nombre = input(
-        "Nombre de la tarea: "
-    ).strip()
+    nombre = input("Nombre de la tarea: ").strip()
 
     if not nombre:
         print()
-        print(
-            "La tarea no puede estar vacía."
-        )
+        print("La tarea no puede estar vacía.")
         return
 
     fecha = input(
-        "Fecha límite "
-        "(DD/MM/AAAA, Enter para dejar vacía): "
+        "Fecha límite (DD/MM/AAAA, Enter para dejar vacía): "
     ).strip()
 
     if not validar_fecha(fecha):
         print()
-        print(
-            "Fecha no válida. Usa DD/MM/AAAA."
-        )
+        print("Fecha no válida. Usa DD/MM/AAAA.")
         return
 
     categoria = input(
-        "Categoría "
-        "(ej. TFM, asignatura, lectura): "
+        "Categoría (ej. TFM, asignatura, lectura): "
     ).strip()
 
     if not categoria:
@@ -368,35 +307,14 @@ def mostrar_tareas(tareas):
         print("Todavía no hay tareas.")
         return
 
-    for numero, tarea in enumerate(
-        tareas,
-        start=1,
-    ):
-        estado = (
-            "✓"
-            if tarea["completada"]
-            else " "
-        )
+    for numero, tarea in enumerate(tareas, start=1):
+        estado = "✓" if tarea["completada"] else " "
+        fecha = tarea["fecha_limite"] or "Sin fecha"
 
-        fecha = (
-            tarea["fecha_limite"]
-            or "Sin fecha"
-        )
-
-        print(
-            f"{numero}. [{estado}] "
-            f"{tarea['nombre']}"
-        )
-
+        print(f"{numero}. [{estado}] {tarea['nombre']}")
         print(f"   Fecha: {fecha}")
-        print(
-            f"   Prioridad: "
-            f"{tarea['prioridad']}"
-        )
-        print(
-            f"   Categoría: "
-            f"{tarea['categoria']}"
-        )
+        print(f"   Prioridad: {tarea['prioridad']}")
+        print(f"   Categoría: {tarea['categoria']}")
         print()
 
 
@@ -415,19 +333,14 @@ def completar_tarea(tareas):
 
     if tareas[indice]["completada"]:
         print()
-        print(
-            "Esta tarea ya estaba completada."
-        )
+        print("Esta tarea ya estaba completada.")
         return
 
     tareas[indice]["completada"] = True
     guardar_tareas(tareas)
 
     print()
-    print(
-        f"✓ Completada: "
-        f"{tareas[indice]['nombre']}"
-    )
+    print(f"✓ Completada: {tareas[indice]['nombre']}")
     print()
 
 
@@ -447,8 +360,7 @@ def eliminar_tarea(tareas):
     tarea = tareas[indice]
 
     confirmacion = input(
-        f'¿Eliminar "{tarea["nombre"]}"? '
-        "(s/n): "
+        f'¿Eliminar "{tarea["nombre"]}"? (s/n): '
     ).strip().lower()
 
     if confirmacion != "s":
@@ -481,19 +393,12 @@ def mostrar_progreso(tareas):
     )
 
     pendientes = total - completadas
-
-    porcentaje = (
-        completadas / total
-    ) * 100
+    porcentaje = (completadas / total) * 100
 
     print(f"Total de tareas: {total}")
-    print(
-        f"Completadas: {completadas}"
-    )
+    print(f"Completadas: {completadas}")
     print(f"Pendientes: {pendientes}")
-    print(
-        f"Progreso: {porcentaje:.0f}%"
-    )
+    print(f"Progreso: {porcentaje:.0f}%")
     print()
 
     print("Por categoría:")
@@ -512,22 +417,14 @@ def mostrar_progreso(tareas):
         categorias[categoria]["total"] += 1
 
         if tarea["completada"]:
-            categorias[categoria][
-                "completadas"
-            ] += 1
+            categorias[categoria]["completadas"] += 1
 
-    for categoria, datos in (
-        categorias.items()
-    ):
+    for categoria, datos in categorias.items():
         total_categoria = datos["total"]
-
-        completadas_categoria = (
-            datos["completadas"]
-        )
+        completadas_categoria = datos["completadas"]
 
         porcentaje_categoria = (
-            completadas_categoria
-            / total_categoria
+            completadas_categoria / total_categoria
         ) * 100
 
         print(
@@ -551,27 +448,19 @@ def configurar_planificacion(planificacion):
     )
     print()
 
-    fecha_actual = planificacion[
-        "fecha_objetivo"
-    ]
+    fecha_actual = planificacion["fecha_objetivo"]
 
     nueva_fecha = input(
-        "Fecha objetivo "
-        f"(actual: {fecha_actual}): "
+        f"Fecha objetivo (actual: {fecha_actual}): "
     ).strip()
 
     if nueva_fecha:
         if not validar_fecha(nueva_fecha):
             print()
-            print(
-                "Fecha no válida. "
-                "Usa DD/MM/AAAA."
-            )
+            print("Fecha no válida. Usa DD/MM/AAAA.")
             return
 
-        planificacion[
-            "fecha_objetivo"
-        ] = nueva_fecha
+        planificacion["fecha_objetivo"] = nueva_fecha
 
     print()
     print(
@@ -585,14 +474,11 @@ def configurar_planificacion(planificacion):
     print()
 
     for dia in DIAS_SEMANA:
-        actual = planificacion[
-            "disponibilidad"
-        ][dia]
+        actual = planificacion["disponibilidad"][dia]
 
         while True:
             respuesta = input(
-                f"{dia} "
-                f"(actual: {actual} h): "
+                f"{dia} (actual: {actual} h): "
             ).strip()
 
             if not respuesta:
@@ -604,27 +490,18 @@ def configurar_planificacion(planificacion):
                 if horas < 0:
                     raise ValueError
 
-                planificacion[
-                    "disponibilidad"
-                ][dia] = horas
-
+                planificacion["disponibilidad"][dia] = horas
                 break
 
             except ValueError:
                 print(
-                    "Introduce un número "
-                    "mayor o igual que 0."
+                    "Introduce un número mayor o igual que 0."
                 )
 
-    guardar_planificacion(
-        planificacion
-    )
+    guardar_planificacion(planificacion)
 
     print()
-    print(
-        "✓ Planificación guardada "
-        "correctamente."
-    )
+    print("✓ Planificación guardada correctamente.")
     print()
 
 
@@ -642,21 +519,56 @@ def mostrar_disponibilidad(planificacion):
     total = 0.0
 
     for dia in DIAS_SEMANA:
-        horas = planificacion[
-            "disponibilidad"
-        ][dia]
-
+        horas = planificacion["disponibilidad"][dia]
         total += horas
 
-        print(
-            f"{dia}: {horas:g} h"
-        )
+        print(f"{dia}: {horas:g} h")
 
     print()
+    print(f"Total disponible semanal: {total:g} h")
+    print()
+
+def calcular_horas_hasta_objetivo(planificacion):
+    fecha_hoy = datetime.now().date()
+
+    fecha_objetivo = datetime.strptime(
+        planificacion["fecha_objetivo"],
+        "%d/%m/%Y",
+    ).date()
+
+    if fecha_objetivo < fecha_hoy:
+        return 0.0
+
+    horas_totales = 0.0
+    fecha_actual = fecha_hoy
+
+    while fecha_actual <= fecha_objetivo:
+        dia_semana = DIAS_SEMANA[
+            fecha_actual.weekday()
+        ]
+
+        horas_totales += planificacion[
+            "disponibilidad"
+        ][dia_semana]
+
+        fecha_actual += timedelta(days=1)
+
+    return horas_totales
+
+
+def mostrar_horas_hasta_objetivo(planificacion):
+    print()
+    print("HORAS DISPONIBLES HASTA EL OBJETIVO")
+    print("-----------------------------------")
+
+    horas = calcular_horas_hasta_objetivo(planificacion)
+
     print(
-        f"Total disponible semanal: "
-        f"{total:g} h"
+        f"Fecha objetivo: "
+        f"{planificacion['fecha_objetivo']}"
     )
+
+    print(f"Horas disponibles: {horas:g} h")
     print()
 
 
@@ -669,14 +581,10 @@ def main():
     while True:
         mostrar_menu()
 
-        opcion = input(
-            "Selecciona una opción: "
-        ).strip()
+        opcion = input("Selecciona una opción: ").strip()
 
         if opcion == "1":
-            mostrar_objetivo(
-                planificacion
-            )
+            mostrar_objetivo(planificacion)
 
         elif opcion == "2":
             añadir_tarea(tareas)
@@ -694,16 +602,15 @@ def main():
             mostrar_progreso(tareas)
 
         elif opcion == "7":
-            configurar_planificacion(
-                planificacion
-            )
+            configurar_planificacion(planificacion)
 
         elif opcion == "8":
-            mostrar_disponibilidad(
-                planificacion
-            )
+            mostrar_disponibilidad(planificacion)
 
         elif opcion == "9":
+            mostrar_horas_hasta_objetivo(planificacion)
+
+        elif opcion == "10":
             print()
             print("¡Hasta luego!")
             break
@@ -716,4 +623,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
