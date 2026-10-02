@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 
 def cargar_tareas(archivo_tareas):
@@ -13,11 +14,6 @@ def cargar_tareas(archivo_tareas):
         ) as archivo:
             datos = json.load(archivo)
 
-        if isinstance(datos, list):
-            return datos
-
-        return []
-
     except (json.JSONDecodeError, OSError):
         print()
         print(
@@ -26,6 +22,83 @@ def cargar_tareas(archivo_tareas):
         )
         print()
         return []
+
+    if not isinstance(datos, list):
+        return []
+
+    tareas = []
+
+    for tarea in datos:
+        if isinstance(tarea, str):
+            tareas.append(
+                {
+                    "nombre": tarea.strip(),
+                    "fecha_limite": "",
+                    "prioridad": "Media",
+                    "categoria": "General",
+                    "completada": False,
+                }
+            )
+            continue
+
+        if not isinstance(tarea, dict):
+            continue
+
+        nombre = str(
+            tarea.get("nombre", "")
+        ).strip()
+
+        if not nombre:
+            continue
+
+        fecha_limite = str(
+            tarea.get("fecha_limite", "")
+        ).strip()
+
+        prioridad = tarea.get(
+            "prioridad",
+            "Media",
+        )
+
+        if prioridad not in (
+            "Alta",
+            "Media",
+            "Baja",
+        ):
+            prioridad = "Media"
+
+        categoria = str(
+            tarea.get(
+                "categoria",
+                "General",
+            )
+        ).strip()
+
+        if not categoria:
+            categoria = "General"
+
+        completada = tarea.get(
+            "completada",
+            False,
+        )
+
+        if not isinstance(
+            completada,
+            bool,
+        ):
+            completada = bool(completada)
+
+        tareas.append(
+            {
+                "nombre": nombre,
+                "fecha_limite": fecha_limite,
+                "prioridad": prioridad,
+                "categoria": categoria,
+                "completada": completada,
+            }
+        )
+
+    return tareas
 
 
 def guardar_tareas(tareas, archivo_tareas):
@@ -82,6 +155,7 @@ def pedir_numero_tarea(tareas, mensaje):
 
 def pedir_prioridad(prioridades):
     print()
+    print("Prioridad:")
     print("1. Alta")
     print("2. Media")
     print("3. Baja")
@@ -166,10 +240,35 @@ def mostrar_tareas(tareas):
         print("Todavía no hay tareas.")
         return
 
-    for numero, tarea in enumerate(
-        tareas,
+    indices_ordenados = sorted(
+        range(len(tareas)),
+        key=lambda indice: (
+            1 if tareas[indice]["completada"] else 0,
+            {
+                "Alta": 1,
+                "Media": 2,
+                "Baja": 3,
+            }.get(
+                tareas[indice]["prioridad"],
+                2,
+            ),
+            (
+                datetime.strptime(
+                    tareas[indice]["fecha_limite"],
+                    "%d/%m/%Y",
+                )
+                if tareas[indice]["fecha_limite"]
+                else datetime.max
+            ),
+        ),
+    )
+
+    for numero, indice in enumerate(
+        indices_ordenados,
         start=1,
     ):
+        tarea = tareas[indice]
+
         estado = (
             "✓"
             if tarea["completada"]
