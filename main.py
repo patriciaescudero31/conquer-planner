@@ -32,7 +32,9 @@ def mostrar_menu():
     print("1. Ver objetivo")
     print("2. Añadir tarea")
     print("3. Ver tareas")
-    print("4. Salir")
+    print("4. Completar tarea")
+    print("5. Eliminar tarea")
+    print("6. Salir")
     print()
 
 
@@ -42,7 +44,7 @@ def cargar_tareas():
 
     try:
         with open(ARCHIVO_TAREAS, "r", encoding="utf-8") as archivo:
-            tareas = json.load(archivo)
+            datos = json.load(archivo)
     except (json.JSONDecodeError, OSError):
         print()
         print("Aviso: no se han podido cargar las tareas.")
@@ -50,28 +52,36 @@ def cargar_tareas():
         print()
         return []
 
-    tareas_convertidas = []
+    tareas = []
 
-    for tarea in tareas:
+    for tarea in datos:
+        # Compatibilidad con las tareas antiguas que eran solo texto
         if isinstance(tarea, str):
-            tareas_convertidas.append({
+            tareas.append({
                 "nombre": tarea,
-                "fecha_limite": ""
+                "fecha_limite": "",
+                "completada": False
             })
 
         elif isinstance(tarea, dict):
-            tareas_convertidas.append({
-                "nombre": tarea.get("nombre", "").strip(),
-                "fecha_limite": tarea.get("fecha_limite", "").strip()
+            tareas.append({
+                "nombre": str(tarea.get("nombre", "")).strip(),
+                "fecha_limite": str(tarea.get("fecha_limite", "")).strip(),
+                "completada": bool(tarea.get("completada", False))
             })
 
-    return tareas_convertidas
+    return tareas
 
 
 def guardar_tareas(tareas):
     try:
         with open(ARCHIVO_TAREAS, "w", encoding="utf-8") as archivo:
-            json.dump(tareas, archivo, ensure_ascii=False, indent=4)
+            json.dump(
+                tareas,
+                archivo,
+                ensure_ascii=False,
+                indent=4
+            )
     except OSError:
         print()
         print("Error: no se han podido guardar las tareas.")
@@ -89,6 +99,30 @@ def validar_fecha(fecha):
         return False
 
 
+def pedir_numero_tarea(tareas, mensaje):
+    if not tareas:
+        print()
+        print("No hay tareas disponibles.")
+        print()
+        return None
+
+    try:
+        numero = int(input(mensaje).strip())
+    except ValueError:
+        print()
+        print("Introduce un número válido.")
+        print()
+        return None
+
+    if numero < 1 or numero > len(tareas):
+        print()
+        print("Ese número de tarea no existe.")
+        print()
+        return None
+
+    return numero - 1
+
+
 def añadir_tarea(tareas):
     print()
     print("AÑADIR TAREA")
@@ -96,33 +130,33 @@ def añadir_tarea(tareas):
 
     nombre = input("Nombre de la tarea: ").strip()
 
-    if nombre == "":
+    if not nombre:
         print()
         print("La tarea no puede estar vacía.")
         print()
         return
 
-    fecha_limite = input(
+    fecha = input(
         "Fecha límite (DD/MM/AAAA, Enter para dejar vacía): "
     ).strip()
 
-    if not validar_fecha(fecha_limite):
+    if not validar_fecha(fecha):
         print()
-        print("Fecha no válida.")
-        print("Utiliza el formato DD/MM/AAAA.")
+        print("Fecha no válida. Usa DD/MM/AAAA.")
         print()
         return
 
     tarea = {
         "nombre": nombre,
-        "fecha_limite": fecha_limite
+        "fecha_limite": fecha,
+        "completada": False
     }
 
     tareas.append(tarea)
     guardar_tareas(tareas)
 
     print()
-    print("Tarea añadida correctamente.")
+    print("✓ Tarea añadida correctamente.")
     print()
 
 
@@ -132,21 +166,80 @@ def mostrar_tareas(tareas):
     print("-----------------------------------")
 
     if not tareas:
-        print("Todavía no hay tareas guardadas.")
+        print("Todavía no hay tareas.")
         print()
         return
 
     for numero, tarea in enumerate(tareas, start=1):
-        nombre = tarea.get("nombre", "Sin nombre")
-        fecha = tarea.get("fecha_limite", "")
+        estado = "✓" if tarea["completada"] else " "
+        nombre = tarea["nombre"]
+        fecha = tarea["fecha_limite"] or "Sin fecha"
 
-        print(f"{numero}. {nombre}")
+        print(f"{numero}. [{estado}] {nombre}")
+        print(f"   Fecha límite: {fecha}")
 
-        if fecha:
-            print(f"   Fecha límite: {fecha}")
-        else:
-            print("   Fecha límite: Sin fecha")
+    print()
 
+
+def completar_tarea(tareas):
+    print()
+    print("COMPLETAR TAREA")
+    print("-----------------------------------")
+
+    indice = pedir_numero_tarea(
+        tareas,
+        "Número de tarea completada: "
+    )
+
+    if indice is None:
+        return
+
+    tarea = tareas[indice]
+
+    if tarea["completada"]:
+        print()
+        print("Esta tarea ya estaba completada.")
+        print()
+        return
+
+    tarea["completada"] = True
+    guardar_tareas(tareas)
+
+    print()
+    print(f"✓ Tarea completada: {tarea['nombre']}")
+    print()
+
+
+def eliminar_tarea(tareas):
+    print()
+    print("ELIMINAR TAREA")
+    print("-----------------------------------")
+
+    indice = pedir_numero_tarea(
+        tareas,
+        "Número de tarea a eliminar: "
+    )
+
+    if indice is None:
+        return
+
+    tarea = tareas[indice]
+
+    confirmacion = input(
+        f'¿Eliminar "{tarea["nombre"]}"? (s/n): '
+    ).strip().lower()
+
+    if confirmacion != "s":
+        print()
+        print("Eliminación cancelada.")
+        print()
+        return
+
+    tareas.pop(indice)
+    guardar_tareas(tareas)
+
+    print()
+    print("✓ Tarea eliminada.")
     print()
 
 
@@ -170,13 +263,19 @@ def main():
             mostrar_tareas(tareas)
 
         elif opcion == "4":
+            completar_tarea(tareas)
+
+        elif opcion == "5":
+            eliminar_tarea(tareas)
+
+        elif opcion == "6":
             print()
             print("¡Hasta luego!")
             break
 
         else:
             print()
-            print("Opción no válida. Elige un número del 1 al 4.")
+            print("Opción no válida.")
             print()
 
 
