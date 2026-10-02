@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import json
 
@@ -239,14 +240,14 @@ def mostrar_horas_hasta_objetivo(planificacion):
     print("HORAS HASTA EL OBJETIVO")
     print("-----------------------------------")
 
-    horas = calcular_horas_hasta_objetivo(
+    horas_disponibles = calcular_horas_hasta_objetivo(
         planificacion,
         DIAS_SEMANA,
     )
 
     print(
         f"Horas disponibles hasta el objetivo: "
-        f"{horas:g} h"
+        f"{horas_disponibles:g} h"
     )
 
     if "horas_estimadas" not in planificacion:
@@ -262,12 +263,80 @@ def mostrar_horas_hasta_objetivo(planificacion):
         return
 
     horas_estimadas = planificacion["horas_estimadas"]
-    diferencia = horas - horas_estimadas
+
+    print(
+        f"Horas estimadas necesarias: "
+        f"{horas_estimadas:g} h"
+    )
+
+    if horas_estimadas <= 0:
+        print()
+        print(
+            "No se puede calcular la cobertura "
+            "porque las horas estimadas deben ser "
+            "mayores que 0."
+        )
+        print()
+        return
+
+    cobertura = (
+        horas_disponibles / horas_estimadas
+    ) * 100
+
+    diferencia = horas_disponibles - horas_estimadas
+
+    fecha_hoy = datetime.now().date()
+
+    fecha_objetivo = datetime.strptime(
+        planificacion["fecha_objetivo"],
+        "%d/%m/%Y",
+    ).date()
+
+    dias_restantes = (
+        fecha_objetivo - fecha_hoy
+    ).days
+
+    if dias_restantes < 0:
+        dias_restantes = 0
+
+    semanas_restantes = dias_restantes / 7
+
+    print(
+        f"Cobertura disponible: "
+        f"{cobertura:.1f}%"
+    )
 
     if diferencia >= 0:
-        print(f"Margen disponible: {diferencia:g} h")
+        print(
+            f"Margen disponible: "
+            f"{diferencia:g} h"
+        )
     else:
-        print(f"Faltan: {abs(diferencia):g} h")
+        print(
+            f"Faltan: "
+            f"{abs(diferencia):g} h"
+        )
+
+    if semanas_restantes > 0:
+        horas_semanales_necesarias = (
+            horas_estimadas
+            / semanas_restantes
+        )
+
+        disponibilidad_semanal = sum(
+            planificacion["disponibilidad"][dia]
+            for dia in DIAS_SEMANA
+        )
+
+        print(
+            f"Media necesaria por semana: "
+            f"{horas_semanales_necesarias:.1f} h"
+        )
+
+        print(
+            f"Disponibilidad semanal configurada: "
+            f"{disponibilidad_semanal:g} h"
+        )
 
     print()
 
