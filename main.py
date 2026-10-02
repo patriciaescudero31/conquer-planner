@@ -1,6 +1,19 @@
-import json
-from datetime import datetime, timedelta
 from pathlib import Path
+import json
+
+from tareas import (
+    añadir_tarea,
+    cargar_tareas,
+    completar_tarea,
+    eliminar_tarea,
+    guardar_tareas,
+    mostrar_progreso,
+    mostrar_tareas,
+)
+from utilidades import (
+    calcular_horas_hasta_objetivo,
+    validar_fecha,
+)
 
 
 ARCHIVO_TAREAS = Path("tareas.json")
@@ -36,8 +49,17 @@ def mostrar_objetivo(planificacion):
     print()
     print("OBJETIVO")
     print("-----------------------------------")
-    print("Terminar el máster")
-    print(f"Fecha objetivo: {planificacion['fecha_objetivo']}")
+    print(
+        f"Fecha objetivo: "
+        f"{planificacion['fecha_objetivo']}"
+    )
+
+    if "horas_estimadas" in planificacion:
+        print(
+            f"Horas estimadas: "
+            f"{planificacion['horas_estimadas']:g} h"
+        )
+
     print()
 
 
@@ -59,83 +81,27 @@ def mostrar_menu():
     print()
 
 
-def cargar_tareas():
-    if not ARCHIVO_TAREAS.exists():
-        return []
-
-    try:
-        with open(ARCHIVO_TAREAS, "r", encoding="utf-8") as archivo:
-            datos = json.load(archivo)
-
-    except (json.JSONDecodeError, OSError):
-        print()
-        print("Aviso: no se han podido cargar las tareas.")
-        return []
-
-    tareas = []
-
-    for tarea in datos:
-        if isinstance(tarea, str):
-            tareas.append({
-                "nombre": tarea,
-                "fecha_limite": "",
-                "prioridad": "Media",
-                "categoria": "General",
-                "completada": False,
-            })
-
-        elif isinstance(tarea, dict):
-            tareas.append({
-                "nombre": str(tarea.get("nombre", "")).strip(),
-                "fecha_limite": str(
-                    tarea.get("fecha_limite", "")
-                ).strip(),
-                "prioridad": tarea.get("prioridad", "Media"),
-                "categoria": str(
-                    tarea.get("categoria", "General")
-                ).strip(),
-                "completada": bool(
-                    tarea.get("completada", False)
-                ),
-            })
-
-    return tareas
-
-
-def guardar_tareas(tareas):
-    try:
-        with open(ARCHIVO_TAREAS, "w", encoding="utf-8") as archivo:
-            json.dump(
-                tareas,
-                archivo,
-                ensure_ascii=False,
-                indent=4,
-            )
-
-    except OSError:
-        print()
-        print("Error: no se han podido guardar las tareas.")
-        print()
-
-
 def crear_planificacion_por_defecto():
     return {
         "fecha_objetivo": "31/03/2027",
+        "horas_estimadas": 100.0,
         "disponibilidad": {
-            "Lunes": 0.0,
-            "Martes": 0.0,
-            "Miércoles": 0.0,
-            "Jueves": 0.0,
-            "Viernes": 0.0,
-            "Sábado": 0.0,
-            "Domingo": 0.0,
+            "Lunes": 2.0,
+            "Martes": 2.0,
+            "Miércoles": 2.0,
+            "Jueves": 2.0,
+            "Viernes": 2.0,
+            "Sábado": 4.0,
+            "Domingo": 4.0,
         },
     }
 
 
 def cargar_planificacion():
     if not ARCHIVO_PLANIFICACION.exists():
-        return crear_planificacion_por_defecto()
+        planificacion = crear_planificacion_por_defecto()
+        guardar_planificacion(planificacion)
+        return planificacion
 
     try:
         with open(
@@ -145,42 +111,22 @@ def cargar_planificacion():
         ) as archivo:
             datos = json.load(archivo)
 
-    except (json.JSONDecodeError, OSError):
+        if not isinstance(datos, dict):
+            raise ValueError
+
+        return datos
+
+    except (json.JSONDecodeError, OSError, ValueError):
         print()
-        print("Aviso: no se ha podido cargar la planificación.")
+        print(
+            "Aviso: no se ha podido cargar "
+            "la planificación."
+        )
         print()
-        return crear_planificacion_por_defecto()
 
-    planificacion = crear_planificacion_por_defecto()
-
-    if isinstance(datos, dict):
-        fecha_objetivo = datos.get(
-            "fecha_objetivo",
-            "31/03/2027",
-        )
-
-        if validar_fecha(fecha_objetivo):
-            planificacion["fecha_objetivo"] = fecha_objetivo
-
-        disponibilidad = datos.get(
-            "disponibilidad",
-            {},
-        )
-
-        if isinstance(disponibilidad, dict):
-            for dia in DIAS_SEMANA:
-                valor = disponibilidad.get(dia, 0.0)
-
-                try:
-                    valor = float(valor)
-
-                    if valor >= 0:
-                        planificacion["disponibilidad"][dia] = valor
-
-                except (TypeError, ValueError):
-                    pass
-
-    return planificacion
+        planificacion = crear_planificacion_por_defecto()
+        guardar_planificacion(planificacion)
+        return planificacion
 
 
 def guardar_planificacion(planificacion):
@@ -199,242 +145,11 @@ def guardar_planificacion(planificacion):
 
     except OSError:
         print()
-        print("Error: no se ha podido guardar la planificación.")
-        print()
-
-
-def validar_fecha(fecha):
-    if not fecha:
-        return True
-
-    try:
-        datetime.strptime(fecha, "%d/%m/%Y")
-        return True
-
-    except ValueError:
-        return False
-
-
-def pedir_numero_tarea(tareas, mensaje):
-    if not tareas:
-        print()
-        print("No hay tareas disponibles.")
-        print()
-        return None
-
-    try:
-        numero = int(input(mensaje).strip())
-
-    except ValueError:
-        print()
-        print("Introduce un número válido.")
-        print()
-        return None
-
-    if numero < 1 or numero > len(tareas):
-        print()
-        print("Ese número de tarea no existe.")
-        print()
-        return None
-
-    return numero - 1
-
-
-def pedir_prioridad():
-    print()
-    print("Prioridad:")
-    print("1. Alta")
-    print("2. Media")
-    print("3. Baja")
-
-    opcion = input("Selecciona prioridad: ").strip()
-
-    return PRIORIDADES.get(opcion, "Media")
-
-
-def añadir_tarea(tareas):
-    print()
-    print("AÑADIR TAREA")
-    print("-----------------------------------")
-
-    nombre = input("Nombre de la tarea: ").strip()
-
-    if not nombre:
-        print()
-        print("La tarea no puede estar vacía.")
-        return
-
-    fecha = input(
-        "Fecha límite (DD/MM/AAAA, Enter para dejar vacía): "
-    ).strip()
-
-    if not validar_fecha(fecha):
-        print()
-        print("Fecha no válida. Usa DD/MM/AAAA.")
-        return
-
-    categoria = input(
-        "Categoría (ej. TFM, asignatura, lectura): "
-    ).strip()
-
-    if not categoria:
-        categoria = "General"
-
-    prioridad = pedir_prioridad()
-
-    tarea = {
-        "nombre": nombre,
-        "fecha_limite": fecha,
-        "prioridad": prioridad,
-        "categoria": categoria,
-        "completada": False,
-    }
-
-    tareas.append(tarea)
-    guardar_tareas(tareas)
-
-    print()
-    print("✓ Tarea añadida correctamente.")
-    print()
-
-
-def mostrar_tareas(tareas):
-    print()
-    print("MIS TAREAS")
-    print("-----------------------------------")
-
-    if not tareas:
-        print("Todavía no hay tareas.")
-        return
-
-    for numero, tarea in enumerate(tareas, start=1):
-        estado = "✓" if tarea["completada"] else " "
-        fecha = tarea["fecha_limite"] or "Sin fecha"
-
-        print(f"{numero}. [{estado}] {tarea['nombre']}")
-        print(f"   Fecha: {fecha}")
-        print(f"   Prioridad: {tarea['prioridad']}")
-        print(f"   Categoría: {tarea['categoria']}")
-        print()
-
-
-def completar_tarea(tareas):
-    print()
-    print("COMPLETAR TAREA")
-    print("-----------------------------------")
-
-    indice = pedir_numero_tarea(
-        tareas,
-        "Número de tarea completada: ",
-    )
-
-    if indice is None:
-        return
-
-    if tareas[indice]["completada"]:
-        print()
-        print("Esta tarea ya estaba completada.")
-        return
-
-    tareas[indice]["completada"] = True
-    guardar_tareas(tareas)
-
-    print()
-    print(f"✓ Completada: {tareas[indice]['nombre']}")
-    print()
-
-
-def eliminar_tarea(tareas):
-    print()
-    print("ELIMINAR TAREA")
-    print("-----------------------------------")
-
-    indice = pedir_numero_tarea(
-        tareas,
-        "Número de tarea a eliminar: ",
-    )
-
-    if indice is None:
-        return
-
-    tarea = tareas[indice]
-
-    confirmacion = input(
-        f'¿Eliminar "{tarea["nombre"]}"? (s/n): '
-    ).strip().lower()
-
-    if confirmacion != "s":
-        print()
-        print("Eliminación cancelada.")
-        return
-
-    tareas.pop(indice)
-    guardar_tareas(tareas)
-
-    print()
-    print("✓ Tarea eliminada.")
-    print()
-
-
-def mostrar_progreso(tareas):
-    print()
-    print("PROGRESO")
-    print("-----------------------------------")
-
-    if not tareas:
-        print("Todavía no hay tareas.")
-        return
-
-    total = len(tareas)
-
-    completadas = sum(
-        tarea["completada"]
-        for tarea in tareas
-    )
-
-    pendientes = total - completadas
-    porcentaje = (completadas / total) * 100
-
-    print(f"Total de tareas: {total}")
-    print(f"Completadas: {completadas}")
-    print(f"Pendientes: {pendientes}")
-    print(f"Progreso: {porcentaje:.0f}%")
-    print()
-
-    print("Por categoría:")
-
-    categorias = {}
-
-    for tarea in tareas:
-        categoria = tarea["categoria"]
-
-        if categoria not in categorias:
-            categorias[categoria] = {
-                "total": 0,
-                "completadas": 0,
-            }
-
-        categorias[categoria]["total"] += 1
-
-        if tarea["completada"]:
-            categorias[categoria]["completadas"] += 1
-
-    for categoria, datos in categorias.items():
-        total_categoria = datos["total"]
-        completadas_categoria = datos["completadas"]
-
-        porcentaje_categoria = (
-            completadas_categoria / total_categoria
-        ) * 100
-
         print(
-            f"- {categoria}: "
-            f"{completadas_categoria}/"
-            f"{total_categoria} "
-            f"({porcentaje_categoria:.0f}%)"
+            "Error: no se ha podido guardar "
+            "la planificación."
         )
-
-    print()
+        print()
 
 
 def configurar_planificacion(planificacion):
@@ -442,161 +157,168 @@ def configurar_planificacion(planificacion):
     print("CONFIGURAR PLANIFICACIÓN")
     print("-----------------------------------")
 
-    print(
-        "Aquí indicaremos cuánto tiempo real "
-        "tienes disponible cada día."
-    )
-    print()
-
-    fecha_actual = planificacion["fecha_objetivo"]
-
-    nueva_fecha = input(
-        f"Fecha objetivo (actual: {fecha_actual}): "
+    fecha = input(
+        "Fecha objetivo (DD/MM/AAAA): "
     ).strip()
 
-    if nueva_fecha:
-        if not validar_fecha(nueva_fecha):
-            print()
-            print("Fecha no válida. Usa DD/MM/AAAA.")
-            return
+    if not validar_fecha(fecha):
+        print()
+        print(
+            "Fecha no válida. Usa DD/MM/AAAA."
+        )
+        return
 
-        planificacion["fecha_objetivo"] = nueva_fecha
+    try:
+        horas = float(
+            input(
+                "Horas estimadas necesarias: "
+            ).strip()
+        )
+    except ValueError:
+        print()
+        print("Introduce un número válido.")
+        return
+
+    if horas < 0:
+        print()
+        print("Las horas no pueden ser negativas.")
+        return
+
+    planificacion["fecha_objetivo"] = fecha
+    planificacion["horas_estimadas"] = horas
 
     print()
-    print(
-        "Ahora introduce las horas que "
-        "puedes dedicar al estudio cada día."
-    )
-    print(
-        "Puedes usar decimales. "
-        "Ejemplo: 1.5 = 1 hora y 30 minutos."
-    )
+    print("Disponibilidad semanal:")
     print()
 
     for dia in DIAS_SEMANA:
-        actual = planificacion["disponibilidad"][dia]
+        try:
+            horas_dia = float(
+                input(
+                    f"Horas disponibles el {dia}: "
+                ).strip()
+            )
+        except ValueError:
+            print()
+            print("Introduce un número válido.")
+            return
 
-        while True:
-            respuesta = input(
-                f"{dia} (actual: {actual} h): "
-            ).strip()
+        if horas_dia < 0:
+            print()
+            print("Las horas no pueden ser negativas.")
+            return
 
-            if not respuesta:
-                break
-
-            try:
-                horas = float(respuesta)
-
-                if horas < 0:
-                    raise ValueError
-
-                planificacion["disponibilidad"][dia] = horas
-                break
-
-            except ValueError:
-                print(
-                    "Introduce un número mayor o igual que 0."
-                )
+        planificacion["disponibilidad"][dia] = horas_dia
 
     guardar_planificacion(planificacion)
 
     print()
-    print("✓ Planificación guardada correctamente.")
+    print("✓ Planificación actualizada correctamente.")
     print()
 
 
 def mostrar_disponibilidad(planificacion):
     print()
-    print("MI DISPONIBILIDAD")
+    print("DISPONIBILIDAD SEMANAL")
     print("-----------------------------------")
-
-    print(
-        f"Fecha objetivo: "
-        f"{planificacion['fecha_objetivo']}"
-    )
-    print()
 
     total = 0.0
 
     for dia in DIAS_SEMANA:
         horas = planificacion["disponibilidad"][dia]
         total += horas
-
         print(f"{dia}: {horas:g} h")
 
     print()
     print(f"Total disponible semanal: {total:g} h")
     print()
 
-def calcular_horas_hasta_objetivo(planificacion):
-    fecha_hoy = datetime.now().date()
-
-    fecha_objetivo = datetime.strptime(
-        planificacion["fecha_objetivo"],
-        "%d/%m/%Y",
-    ).date()
-
-    if fecha_objetivo < fecha_hoy:
-        return 0.0
-
-    horas_totales = 0.0
-    fecha_actual = fecha_hoy
-
-    while fecha_actual <= fecha_objetivo:
-        dia_semana = DIAS_SEMANA[
-            fecha_actual.weekday()
-        ]
-
-        horas_totales += planificacion[
-            "disponibilidad"
-        ][dia_semana]
-
-        fecha_actual += timedelta(days=1)
-
-    return horas_totales
-
 
 def mostrar_horas_hasta_objetivo(planificacion):
     print()
-    print("HORAS DISPONIBLES HASTA EL OBJETIVO")
+    print("HORAS HASTA EL OBJETIVO")
     print("-----------------------------------")
 
-    horas = calcular_horas_hasta_objetivo(planificacion)
-
-    print(
-        f"Fecha objetivo: "
-        f"{planificacion['fecha_objetivo']}"
+    horas = calcular_horas_hasta_objetivo(
+        planificacion,
+        DIAS_SEMANA,
     )
 
-    print(f"Horas disponibles: {horas:g} h")
+    print(
+        f"Horas disponibles hasta el objetivo: "
+        f"{horas:g} h"
+    )
+
+    if "horas_estimadas" not in planificacion:
+        print()
+        print(
+            "Todavía no has configurado las "
+            "horas estimadas necesarias."
+        )
+        print(
+            "Puedes hacerlo desde la opción 7."
+        )
+        print()
+        return
+
+    horas_estimadas = planificacion["horas_estimadas"]
+    diferencia = horas - horas_estimadas
+
+    if diferencia >= 0:
+        print(f"Margen disponible: {diferencia:g} h")
+    else:
+        print(f"Faltan: {abs(diferencia):g} h")
+
     print()
 
 
 def main():
     mostrar_cabecera()
 
-    tareas = cargar_tareas()
+    tareas = cargar_tareas(ARCHIVO_TAREAS)
     planificacion = cargar_planificacion()
 
     while True:
         mostrar_menu()
 
-        opcion = input("Selecciona una opción: ").strip()
+        opcion = input(
+            "Selecciona una opción: "
+        ).strip()
 
         if opcion == "1":
             mostrar_objetivo(planificacion)
 
         elif opcion == "2":
-            añadir_tarea(tareas)
+            añadir_tarea(
+                tareas,
+                PRIORIDADES,
+                validar_fecha,
+                lambda datos: guardar_tareas(
+                    datos,
+                    ARCHIVO_TAREAS,
+                ),
+            )
 
         elif opcion == "3":
             mostrar_tareas(tareas)
 
         elif opcion == "4":
-            completar_tarea(tareas)
+            completar_tarea(
+                tareas,
+                lambda datos: guardar_tareas(
+                    datos,
+                    ARCHIVO_TAREAS,
+                ),
+            )
 
         elif opcion == "5":
-            eliminar_tarea(tareas)
+            eliminar_tarea(
+                tareas,
+                lambda datos: guardar_tareas(
+                    datos,
+                    ARCHIVO_TAREAS,
+                ),
+            )
 
         elif opcion == "6":
             mostrar_progreso(tareas)
@@ -617,7 +339,10 @@ def main():
 
         else:
             print()
-            print("Opción no válida.")
+            print(
+                "Opción no válida. "
+                "Selecciona una opción del menú."
+            )
             print()
 
 
