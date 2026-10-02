@@ -28,28 +28,57 @@ def mostrar_menu():
     print()
 
 
+def añadir_tarea(tareas):
+    print()
+    print("AÑADIR TAREA")
+    print("-----------------------------------")
+
+    nombre = input("Nombre de la tarea: ").strip()
+
+    if nombre == "":
+        print()
+        print("La tarea no puede estar vacía.")
+        return
+
+    tareas.append(nombre)
+
+    print()
+    print("Tarea añadida correctamente.")
+    print()
+
+
+def mostrar_tareas(tareas):
+    print()
+    print("MIS TAREAS")
+    print("-----------------------------------")
+
+    if not tareas:
+        print("Todavía no hay tareas guardadas.")
+    else:
+        for numero, tarea in enumerate(tareas, start=1):
+            print(f"{numero}. {tarea}")
+
+    print()
+
+
 def main():
     mostrar_cabecera()
+
+    tareas = []
 
     while True:
         mostrar_menu()
 
-        opcion = input("Selecciona una opción: ")
+        opcion = input("Selecciona una opción: ").strip()
 
         if opcion == "1":
             mostrar_objetivo()
 
         elif opcion == "2":
-            print()
-            print("Añadir tarea")
-            print("Esta función la construiremos en el siguiente paso.")
-            print()
+            añadir_tarea(tareas)
 
         elif opcion == "3":
-            print()
-            print("Mis tareas")
-            print("Todavía no hay tareas guardadas.")
-            print()
+            mostrar_tareas(tareas)
 
         elif opcion == "4":
             print()
