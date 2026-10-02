@@ -5,6 +5,12 @@ from pathlib import Path
 
 ARCHIVO_TAREAS = Path("tareas.json")
 
+PRIORIDADES = {
+    "1": "Alta",
+    "2": "Media",
+    "3": "Baja",
+}
+
 
 def mostrar_cabecera():
     print("===================================")
@@ -34,7 +40,8 @@ def mostrar_menu():
     print("3. Ver tareas")
     print("4. Completar tarea")
     print("5. Eliminar tarea")
-    print("6. Salir")
+    print("6. Ver progreso")
+    print("7. Salir")
     print()
 
 
@@ -48,26 +55,33 @@ def cargar_tareas():
     except (json.JSONDecodeError, OSError):
         print()
         print("Aviso: no se han podido cargar las tareas.")
-        print("Se empezará con una lista vacía.")
-        print()
         return []
 
     tareas = []
 
     for tarea in datos:
-        # Compatibilidad con las tareas antiguas que eran solo texto
         if isinstance(tarea, str):
             tareas.append({
                 "nombre": tarea,
                 "fecha_limite": "",
-                "completada": False
+                "prioridad": "Media",
+                "categoria": "General",
+                "completada": False,
             })
 
         elif isinstance(tarea, dict):
             tareas.append({
                 "nombre": str(tarea.get("nombre", "")).strip(),
-                "fecha_limite": str(tarea.get("fecha_limite", "")).strip(),
-                "completada": bool(tarea.get("completada", False))
+                "fecha_limite": str(
+                    tarea.get("fecha_limite", "")
+                ).strip(),
+                "prioridad": tarea.get("prioridad", "Media"),
+                "categoria": str(
+                    tarea.get("categoria", "General")
+                ).strip(),
+                "completada": bool(
+                    tarea.get("completada", False)
+                ),
             })
 
     return tareas
@@ -80,7 +94,7 @@ def guardar_tareas(tareas):
                 tareas,
                 archivo,
                 ensure_ascii=False,
-                indent=4
+                indent=4,
             )
     except OSError:
         print()
@@ -89,7 +103,7 @@ def guardar_tareas(tareas):
 
 
 def validar_fecha(fecha):
-    if fecha == "":
+    if not fecha:
         return True
 
     try:
@@ -123,6 +137,18 @@ def pedir_numero_tarea(tareas, mensaje):
     return numero - 1
 
 
+def pedir_prioridad():
+    print()
+    print("Prioridad:")
+    print("1. Alta")
+    print("2. Media")
+    print("3. Baja")
+
+    opcion = input("Selecciona prioridad: ").strip()
+
+    return PRIORIDADES.get(opcion, "Media")
+
+
 def añadir_tarea(tareas):
     print()
     print("AÑADIR TAREA")
@@ -133,7 +159,6 @@ def añadir_tarea(tareas):
     if not nombre:
         print()
         print("La tarea no puede estar vacía.")
-        print()
         return
 
     fecha = input(
@@ -143,13 +168,23 @@ def añadir_tarea(tareas):
     if not validar_fecha(fecha):
         print()
         print("Fecha no válida. Usa DD/MM/AAAA.")
-        print()
         return
+
+    categoria = input(
+        "Categoría (ej. TFM, asignatura, lectura): "
+    ).strip()
+
+    if not categoria:
+        categoria = "General"
+
+    prioridad = pedir_prioridad()
 
     tarea = {
         "nombre": nombre,
         "fecha_limite": fecha,
-        "completada": False
+        "prioridad": prioridad,
+        "categoria": categoria,
+        "completada": False,
     }
 
     tareas.append(tarea)
@@ -167,18 +202,17 @@ def mostrar_tareas(tareas):
 
     if not tareas:
         print("Todavía no hay tareas.")
-        print()
         return
 
     for numero, tarea in enumerate(tareas, start=1):
         estado = "✓" if tarea["completada"] else " "
-        nombre = tarea["nombre"]
         fecha = tarea["fecha_limite"] or "Sin fecha"
 
-        print(f"{numero}. [{estado}] {nombre}")
-        print(f"   Fecha límite: {fecha}")
-
-    print()
+        print(f"{numero}. [{estado}] {tarea['nombre']}")
+        print(f"   Fecha: {fecha}")
+        print(f"   Prioridad: {tarea['prioridad']}")
+        print(f"   Categoría: {tarea['categoria']}")
+        print()
 
 
 def completar_tarea(tareas):
@@ -188,25 +222,22 @@ def completar_tarea(tareas):
 
     indice = pedir_numero_tarea(
         tareas,
-        "Número de tarea completada: "
+        "Número de tarea completada: ",
     )
 
     if indice is None:
         return
 
-    tarea = tareas[indice]
-
-    if tarea["completada"]:
+    if tareas[indice]["completada"]:
         print()
         print("Esta tarea ya estaba completada.")
-        print()
         return
 
-    tarea["completada"] = True
+    tareas[indice]["completada"] = True
     guardar_tareas(tareas)
 
     print()
-    print(f"✓ Tarea completada: {tarea['nombre']}")
+    print(f"✓ Completada: {tareas[indice]['nombre']}")
     print()
 
 
@@ -217,7 +248,7 @@ def eliminar_tarea(tareas):
 
     indice = pedir_numero_tarea(
         tareas,
-        "Número de tarea a eliminar: "
+        "Número de tarea a eliminar: ",
     )
 
     if indice is None:
@@ -232,7 +263,6 @@ def eliminar_tarea(tareas):
     if confirmacion != "s":
         print()
         print("Eliminación cancelada.")
-        print()
         return
 
     tareas.pop(indice)
@@ -240,6 +270,63 @@ def eliminar_tarea(tareas):
 
     print()
     print("✓ Tarea eliminada.")
+    print()
+
+
+def mostrar_progreso(tareas):
+    print()
+    print("PROGRESO")
+    print("-----------------------------------")
+
+    if not tareas:
+        print("Todavía no hay tareas.")
+        return
+
+    total = len(tareas)
+    completadas = sum(
+        tarea["completada"] for tarea in tareas
+    )
+    pendientes = total - completadas
+    porcentaje = (completadas / total) * 100
+
+    print(f"Total de tareas: {total}")
+    print(f"Completadas: {completadas}")
+    print(f"Pendientes: {pendientes}")
+    print(f"Progreso: {porcentaje:.0f}%")
+    print()
+
+    print("Por categoría:")
+
+    categorias = {}
+
+    for tarea in tareas:
+        categoria = tarea["categoria"]
+
+        if categoria not in categorias:
+            categorias[categoria] = {
+                "total": 0,
+                "completadas": 0,
+            }
+
+        categorias[categoria]["total"] += 1
+
+        if tarea["completada"]:
+            categorias[categoria]["completadas"] += 1
+
+    for categoria, datos in categorias.items():
+        total_categoria = datos["total"]
+        completadas_categoria = datos["completadas"]
+
+        porcentaje_categoria = (
+            completadas_categoria / total_categoria
+        ) * 100
+
+        print(
+            f"- {categoria}: "
+            f"{completadas_categoria}/{total_categoria} "
+            f"({porcentaje_categoria:.0f}%)"
+        )
+
     print()
 
 
@@ -269,6 +356,9 @@ def main():
             eliminar_tarea(tareas)
 
         elif opcion == "6":
+            mostrar_progreso(tareas)
+
+        elif opcion == "7":
             print()
             print("¡Hasta luego!")
             break
