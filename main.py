@@ -1,24 +1,9 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 
 ARCHIVO_TAREAS = Path("tareas.json")
-
-
-def cargar_tareas():
-    if not ARCHIVO_TAREAS.exists():
-        return []
-
-    try:
-        with ARCHIVO_TAREAS.open("r", encoding="utf-8") as archivo:
-            return json.load(archivo)
-    except (json.JSONDecodeError, OSError):
-        return []
-
-
-def guardar_tareas(tareas):
-    with ARCHIVO_TAREAS.open("w", encoding="utf-8") as archivo:
-        json.dump(tareas, archivo, ensure_ascii=False, indent=2)
 
 
 def mostrar_cabecera():
@@ -51,6 +36,59 @@ def mostrar_menu():
     print()
 
 
+def cargar_tareas():
+    if not ARCHIVO_TAREAS.exists():
+        return []
+
+    try:
+        with open(ARCHIVO_TAREAS, "r", encoding="utf-8") as archivo:
+            tareas = json.load(archivo)
+    except (json.JSONDecodeError, OSError):
+        print()
+        print("Aviso: no se han podido cargar las tareas.")
+        print("Se empezará con una lista vacía.")
+        print()
+        return []
+
+    tareas_convertidas = []
+
+    for tarea in tareas:
+        if isinstance(tarea, str):
+            tareas_convertidas.append({
+                "nombre": tarea,
+                "fecha_limite": ""
+            })
+
+        elif isinstance(tarea, dict):
+            tareas_convertidas.append({
+                "nombre": tarea.get("nombre", "").strip(),
+                "fecha_limite": tarea.get("fecha_limite", "").strip()
+            })
+
+    return tareas_convertidas
+
+
+def guardar_tareas(tareas):
+    try:
+        with open(ARCHIVO_TAREAS, "w", encoding="utf-8") as archivo:
+            json.dump(tareas, archivo, ensure_ascii=False, indent=4)
+    except OSError:
+        print()
+        print("Error: no se han podido guardar las tareas.")
+        print()
+
+
+def validar_fecha(fecha):
+    if fecha == "":
+        return True
+
+    try:
+        datetime.strptime(fecha, "%d/%m/%Y")
+        return True
+    except ValueError:
+        return False
+
+
 def añadir_tarea(tareas):
     print()
     print("AÑADIR TAREA")
@@ -61,9 +99,26 @@ def añadir_tarea(tareas):
     if nombre == "":
         print()
         print("La tarea no puede estar vacía.")
+        print()
         return
 
-    tareas.append(nombre)
+    fecha_limite = input(
+        "Fecha límite (DD/MM/AAAA, Enter para dejar vacía): "
+    ).strip()
+
+    if not validar_fecha(fecha_limite):
+        print()
+        print("Fecha no válida.")
+        print("Utiliza el formato DD/MM/AAAA.")
+        print()
+        return
+
+    tarea = {
+        "nombre": nombre,
+        "fecha_limite": fecha_limite
+    }
+
+    tareas.append(tarea)
     guardar_tareas(tareas)
 
     print()
@@ -78,9 +133,19 @@ def mostrar_tareas(tareas):
 
     if not tareas:
         print("Todavía no hay tareas guardadas.")
-    else:
-        for numero, tarea in enumerate(tareas, start=1):
-            print(f"{numero}. {tarea}")
+        print()
+        return
+
+    for numero, tarea in enumerate(tareas, start=1):
+        nombre = tarea.get("nombre", "Sin nombre")
+        fecha = tarea.get("fecha_limite", "")
+
+        print(f"{numero}. {nombre}")
+
+        if fecha:
+            print(f"   Fecha límite: {fecha}")
+        else:
+            print("   Fecha límite: Sin fecha")
 
     print()
 
