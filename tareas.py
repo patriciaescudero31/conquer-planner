@@ -82,11 +82,21 @@ def cargar_tareas(archivo_tareas):
             False,
         )
 
-        if not isinstance(
+        if isinstance(completada, str):
+            completada = (
+                completada.strip().lower()
+                in (
+                    "sí",
+                    "si",
+                    "true",
+                    "1",
+                )
+            )
+        elif not isinstance(
             completada,
             bool,
         ):
-            completada = bool(completada)
+            completada = False
 
         tareas.append(
             {
