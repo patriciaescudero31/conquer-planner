@@ -1,6 +1,7 @@
 import json
 import math
 import sys
+from copy import deepcopy
 import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
@@ -17,6 +18,12 @@ from planificador import (
     calcular_carga_pendiente,
     generar_planificacion,
     horas_registradas_por_fecha,
+)
+from copias_seguridad import (
+    ErrorCopiaSeguridad,
+    crear_copia_antes_de_guardar,
+    listar_copias,
+    restaurar_copia,
 )
 
 
@@ -122,6 +129,7 @@ CATALOGO = {
         "IA para el desarrollo": {"temas": 3, "clases": 4, "tareas": 0, "evaluaciones": 0},
     },
 }
+CATALOGO_INICIAL = deepcopy(CATALOGO)
 
 
 def cargar_json(ruta, defecto):
@@ -137,11 +145,13 @@ def cargar_json(ruta, defecto):
 
 def guardar_json(ruta, datos):
     try:
+        crear_copia_antes_de_guardar(ruta)
         ruta.parent.mkdir(parents=True, exist_ok=True)
         with open(ruta, "w", encoding="utf-8") as archivo:
             json.dump(datos, archivo, ensure_ascii=False, indent=4)
         return True
-    except OSError:
+    except (OSError, ErrorCopiaSeguridad) as error:
+        print(f"Error al guardar «{ruta.name}»: {error}")
         return False
 
 
@@ -319,6 +329,10 @@ def cargar_catalogo_local():
 
 
 def aplicar_catalogo_local():
+    for bloque, modulos in CATALOGO_INICIAL.items():
+        for nombre, datos in modulos.items():
+            CATALOGO[bloque][nombre].clear()
+            CATALOGO[bloque][nombre].update(deepcopy(datos))
     for bloque, modulos in cargar_catalogo_local().items():
         for nombre, cambios in modulos.items():
             CATALOGO[bloque][nombre].update(cambios)
@@ -2121,6 +2135,101 @@ class ConquerPlanner:
         info.pack(fill="x", pady=18)
         tk.Label(info, text="Cómo se genera la planificación", font=("Helvetica", 13, "bold"), fg=TEXT, bg=SOFT_AMBER).pack(anchor="w")
         tk.Label(info, text="• Cada tipo de actividad tiene su estimación editable. Al registrar una sesión, el campo de horas se rellena con la estimación del tipo elegido.\n• Los tiempos reales de las últimas cinco sesiones del mismo módulo y tipo ajustan automáticamente la previsión de las actividades del temario.\n• El plan asigna primero las tareas manuales Alta → Media → Baja y reserva el tiempo disponible restante para el temario hasta la fecha objetivo.\n• El máster ocupa primero el tiempo académico; mientras siga pendiente, se planifica además una actividad diaria de inglés si cabe.\n• Registrar una clase, tarea o evaluación actualiza el progreso correspondiente; una clase de HTML también avanza su siguiente lección y un registro de TFM actualiza su tarea.\n• Antigravity se planifica los miércoles con la disponibilidad restante. Los bonus se planifican después del contenido obligatorio.\n• El porcentaje global del máster es una estimación manual; se recalcula el tiempo pendiente al cambiarlo.", font=("Helvetica", 10), fg=TEXT, bg=SOFT_AMBER, justify="left").pack(anchor="w", pady=(7, 0))
+
+        self._mostrar_copias_seguridad()
+
+    def _mostrar_copias_seguridad(self):
+        copias = listar_copias()
+        marco = tk.Frame(
+            self.contenido,
+            bg=CARD,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+            padx=18,
+            pady=16,
+        )
+        marco.pack(fill="x", pady=(0, 20))
+        tk.Label(
+            marco,
+            text="Copias de seguridad",
+            font=("Helvetica", 16, "bold"),
+            fg=TEXT,
+            bg=CARD,
+        ).pack(anchor="w")
+        tk.Label(
+            marco,
+            text=(
+                "Se guarda automáticamente una copia antes de cada cambio "
+                "en la planificación, las tareas o el temario. Se conservan "
+                "las 30 más recientes en este Mac."
+            ),
+            font=("Helvetica", 10),
+            fg=MUTED,
+            bg=CARD,
+            wraplength=850,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        if not copias:
+            tk.Label(
+                marco,
+                text="Aún no hay copias. Se creará la primera al guardar un cambio.",
+                font=("Helvetica", 10),
+                fg=MUTED,
+                bg=CARD,
+            ).pack(anchor="w")
+            return
+        identificadores = {}
+        for copia in copias:
+            try:
+                fecha = datetime.fromisoformat(copia["fecha"])
+                etiqueta = fecha.strftime("%d/%m/%Y %H:%M:%S")
+            except ValueError:
+                etiqueta = copia["id"]
+            identificadores[etiqueta] = copia["id"]
+        seleccion = ttk.Combobox(
+            marco,
+            values=list(identificadores),
+            state="readonly",
+        )
+        seleccion.current(0)
+        seleccion.pack(side="left", fill="x", expand=True, padx=(0, 12))
+        boton(
+            marco,
+            "Restaurar copia",
+            lambda: self._restaurar_copia(
+                identificadores.get(seleccion.get(), "")
+            ),
+        ).pack(side="right")
+
+    def _restaurar_copia(self, identificador):
+        if not identificador:
+            return
+        confirmar = messagebox.askyesno(
+            "Restaurar copia de seguridad",
+            "Se reemplazarán tus archivos actuales de planificación, tareas "
+            "y temario por los de la copia seleccionada. Antes se guardará "
+            "otra copia del estado actual. ¿Quieres continuar?",
+            parent=self.ventana,
+        )
+        if not confirmar:
+            return
+        try:
+            restaurar_copia(identificador)
+        except ErrorCopiaSeguridad as error:
+            messagebox.showerror(
+                "Restaurar copia",
+                str(error),
+                parent=self.ventana,
+            )
+            return
+        self.planificacion = cargar_planificacion()
+        aplicar_catalogo_local()
+        messagebox.showinfo(
+            "Restauración completada",
+            "Se han restaurado los datos de la copia seleccionada.",
+            parent=self.ventana,
+        )
+        self.mostrar_configuracion()
 
     def _guardar_configuracion(self, campos):
         try:

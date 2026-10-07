@@ -2,6 +2,8 @@ import json
 from datetime import datetime
 from unittest.mock import patch
 
+import tareas
+from copias_seguridad import ErrorCopiaSeguridad
 from tareas import cargar_tareas, guardar_tareas
 from utilidades import validar_fecha, calcular_horas_hasta_objetivo
 
@@ -136,3 +138,23 @@ def test_guardar_tareas_muestra_error_si_no_puede_guardar(
     salida = capsys.readouterr().out
 
     assert "no se han podido guardar" in salida
+
+
+def test_no_modifica_tareas_si_falla_la_copia_de_seguridad(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    archivo = tmp_path / "tareas.json"
+    archivo.write_text('[{"nombre": "Original"}]', encoding="utf-8")
+
+    def fallar(_archivo):
+        raise ErrorCopiaSeguridad("disco sin espacio")
+
+    monkeypatch.setattr(tareas, "crear_copia_antes_de_guardar", fallar)
+
+    assert guardar_tareas([{"nombre": "Nueva"}], archivo) is False
+    assert json.loads(archivo.read_text(encoding="utf-8")) == [
+        {"nombre": "Original"}
+    ]
+    assert "disco sin espacio" in capsys.readouterr().out

@@ -4,6 +4,10 @@ import json
 import math
 import sys
 
+from copias_seguridad import (
+    ErrorCopiaSeguridad,
+    crear_copia_antes_de_guardar,
+)
 from tareas import (
     añadir_tarea,
     cargar_tareas,
@@ -159,6 +163,7 @@ def cargar_planificacion():
 
 def guardar_planificacion(planificacion):
     try:
+        crear_copia_antes_de_guardar(ARCHIVO_PLANIFICACION)
         with open(
             ARCHIVO_PLANIFICACION,
             "w",
@@ -171,11 +176,11 @@ def guardar_planificacion(planificacion):
                 indent=4,
             )
 
-    except OSError:
+    except (OSError, ErrorCopiaSeguridad) as error:
         print()
         print(
             "Error: no se ha podido guardar "
-            "la planificación."
+            f"la planificación. {error}"
         )
         print()
 

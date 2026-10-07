@@ -19,6 +19,7 @@
 - Cálculo automático de capacidad hasta el objetivo, horas pendientes y ritmo semanal.
 - Cálculo de horas de máster restantes y margen.
 - Gestión manual de tareas: las pendientes se integran en la agenda diaria por prioridad Alta → Media → Baja, usando la estimación por tarea configurada.
+- Copias de seguridad automáticas de planificación, tareas y temario antes de cada guardado; conserva las 30 últimas y permite restaurarlas desde Configuración.
 - Configuración editable sin abrir VS Code.
 - Interfaz visual de fondo claro con navegación oscura y acentos turquesa.
 
@@ -34,6 +35,7 @@
 - **Calendario:** plan previsto hasta la fecha objetivo en una agenda desplazable, además de sesiones reales seleccionables por día y mes.
 - **Estadísticas:** horas registradas, actividad reciente y distribución del esfuerzo por módulo.
 - **Configuración:** fecha objetivo, horas/progreso globales, inglés y estimaciones específicas por tipo de actividad.
+- **Copias de seguridad:** automáticas antes de cada modificación de los datos; puedes restaurar una versión anterior desde Configuración.
 
 Flujo recomendado: revisa **Plan de hoy**, estudia, registra el tiempo y el tipo de actividad en **Planificación** y deja que el progreso guardado recalcule la siguiente agenda. También puedes corregir el avance manualmente desde **Temario**.
 
@@ -92,4 +94,4 @@ python -m pytest -q
 
 ## Datos personales
 
-`planificacion.json`, `tareas.json`, `temario.json` y las guías locales están excluidos de Git. El código de la aplicación sí se versiona.
+`planificacion.json`, `tareas.json`, `temario.json`, `.copias_seguridad/` y las guías locales están excluidos de Git. Las copias se guardan en este equipo; para protegerlas ante pérdida o avería del Mac, copia periódicamente `.copias_seguridad/` a otro dispositivo o almacenamiento seguro. El código de la aplicación sí se versiona.

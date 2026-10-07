@@ -6,5 +6,6 @@ __pycache__/
 tareas.json
 planificacion.json
 temario.json
+.copias_seguridad/
 GUIA_PROYECTO.md
 DATOS_ACADEMICOS_CONQUER_PLANNER.md

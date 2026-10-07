@@ -1,6 +1,11 @@
 import json
 from datetime import datetime
 
+from copias_seguridad import (
+    ErrorCopiaSeguridad,
+    crear_copia_antes_de_guardar,
+)
+
 
 def cargar_tareas(archivo_tareas):
     if not archivo_tareas.exists():
@@ -121,6 +126,7 @@ def cargar_tareas(archivo_tareas):
 
 def guardar_tareas(tareas, archivo_tareas):
     try:
+        crear_copia_antes_de_guardar(archivo_tareas)
         with open(
             archivo_tareas,
             "w",
@@ -134,11 +140,11 @@ def guardar_tareas(tareas, archivo_tareas):
             )
         return True
 
-    except OSError:
+    except (OSError, ErrorCopiaSeguridad) as error:
         print()
         print(
             "Error: no se han podido guardar "
-            "las tareas."
+            f"las tareas. {error}"
         )
         print()
         return False
