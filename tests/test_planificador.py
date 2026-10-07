@@ -232,3 +232,68 @@ def test_tiempos_reales_recalculan_estimacion_del_modulo():
         if item["modulo"] == "HTML"
     )
     assert html["horas"] == 3.5
+
+
+def test_planifica_tareas_manuales_por_prioridad_y_omite_completadas():
+    planificacion = {
+        "fecha_objetivo": "08/10/2026",
+        "disponibilidad": {"Jueves": 3},
+        "estimaciones": {"tarea": 1},
+    }
+    tareas = [
+        {"nombre": "Tarea baja", "prioridad": "Baja", "categoria": "Casa"},
+        {"nombre": "Tarea alta", "prioridad": "Alta", "categoria": "Estudio"},
+        {
+            "nombre": "Ya terminada",
+            "prioridad": "Alta",
+            "completada": True,
+        },
+        {"nombre": "Tarea media", "prioridad": "Media", "categoria": "Trabajo"},
+    ]
+
+    calendario = generar_planificacion(
+        {},
+        planificacion,
+        date(2026, 10, 8),
+        tareas,
+    )
+
+    asignaciones = calendario["2026-10-08"]
+    assert [item["modulo"] for item in asignaciones] == [
+        "Tarea alta",
+        "Tarea media",
+        "Tarea baja",
+    ]
+    assert [item["categoria"] for item in asignaciones] == ["Tarea"] * 3
+    assert [item["detalles"] for item in asignaciones] == [
+        ["Prioridad Alta · Estudio"],
+        ["Prioridad Media · Trabajo"],
+        ["Prioridad Baja · Casa"],
+    ]
+
+
+def test_tareas_ocupan_primero_el_dia_y_el_tiempo_restante_se_asigna_al_temario():
+    catalogo = {
+        "MÁSTER · FRONTEND": {
+            "HTML": {"clases": 1, "tareas": 0, "evaluaciones": 0},
+        },
+    }
+    planificacion = {
+        "fecha_objetivo": "08/10/2026",
+        "disponibilidad": {"Jueves": 2},
+        "estimaciones": {"tarea": 1, "clase": 1},
+        "progreso_tema": {},
+    }
+
+    calendario = generar_planificacion(
+        catalogo,
+        planificacion,
+        date(2026, 10, 8),
+        [{"nombre": "Entregar formulario", "prioridad": "Alta"}],
+    )
+
+    assert [item["modulo"] for item in calendario["2026-10-08"]] == [
+        "Entregar formulario",
+        "HTML",
+    ]
+    assert sum(item["horas"] for item in calendario["2026-10-08"]) == 2

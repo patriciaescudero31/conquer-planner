@@ -4,9 +4,10 @@
 
 ## Qué hace ahora
 
-- **Plan de hoy automático** con prioridad Máster → Inglés → Bonus.
-- Bloque protegido de **Google Antigravity los miércoles**.
+- **Plan de hoy automático** con tareas manuales ordenadas por prioridad antes del temario.
+- Sesión semanal de **Google Antigravity los miércoles** cuando queda disponibilidad tras las tareas.
 - Seguimiento y edición del progreso por módulo.
+- Edición de las clases, tareas y evaluaciones totales de cada sección del temario; el prework vacío se puede marcar como completado o configurar con sus cantidades reales.
 - Seguimiento de HTML, inglés y resto del catálogo.
 - Agenda diaria y semanal generada desde el temario, el progreso, la disponibilidad y la fecha objetivo.
 - Calendario mensual con planificación prevista y sesiones reales.
@@ -17,16 +18,16 @@
 - Las últimas cinco sesiones reales por módulo y tipo ajustan las estimaciones automáticamente.
 - Cálculo automático de capacidad hasta el objetivo, horas pendientes y ritmo semanal.
 - Cálculo de horas de máster restantes y margen.
-- Gestión manual de tareas sin duplicados automáticos.
+- Gestión manual de tareas: las pendientes se integran en la agenda diaria por prioridad Alta → Media → Baja, usando la estimación por tarea configurada.
 - Configuración editable sin abrir VS Code.
 - Interfaz visual de fondo claro con navegación oscura y acentos turquesa.
 
 ## Qué ofrece cada sección
 
 - **Inicio:** viabilidad hacia la fecha objetivo, ritmo semanal, carga pendiente y siguiente acción recomendada.
-- **Plan de hoy:** agenda académica concreta y horas disponibles restantes del día.
-- **Tareas:** creación y seguimiento de tareas personales, sin duplicar las actividades del temario.
-- **Temario:** progreso editable por módulo; los cambios se reflejan en la agenda que se genera al volver a Plan de hoy, Planificación o Calendario.
+- **Plan de hoy:** agenda de tareas pendientes por prioridad, seguida del temario que cabe en las horas disponibles.
+- **Tareas:** creación y seguimiento de tareas personales; al completar o cambiar prioridad, la planificación se actualiza sin duplicar actividades del temario.
+- **Temario:** totales y progreso editables por módulo; los cambios se guardan localmente y se reflejan en Plan de hoy, Planificación y Calendario.
 - **Planificación:** disponibilidad por día, registro y corrección de sesiones, estimaciones, proyección semanal y carga que podría quedar fuera del objetivo.
 - **Planificación semanal:** cada domingo, al abrir la aplicación, puedes revisar las horas disponibles de cada día para la semana siguiente; al guardar se recalcula el calendario.
 - **Progreso:** porcentajes globales, hitos actuales y capacidad frente a horas de máster pendientes.

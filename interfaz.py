@@ -283,11 +283,67 @@ def guardar_planificacion(planificacion):
 
 
 def cargar_catalogo_local():
-    """Mantiene temario.json como catálogo editable sin obligar a tocar Python."""
+    """Devuelve los cambios locales del catálogo guardados en temario.json."""
     datos = cargar_json(ARCHIVO_TEMARIO, {})
     if not isinstance(datos, dict):
         datos = {}
-    return datos
+    catalogo = datos.get("catalogo", {})
+    if not isinstance(catalogo, dict):
+        return {}
+    cambios = {}
+    for bloque, modulos in catalogo.items():
+        if bloque not in CATALOGO or not isinstance(modulos, dict):
+            continue
+        for nombre, valores in modulos.items():
+            if nombre not in CATALOGO[bloque] or not isinstance(valores, dict):
+                continue
+            normalizados = {}
+            for campo in ("clases", "tareas", "evaluaciones"):
+                if campo not in valores:
+                    continue
+                valor = valores[campo]
+                if isinstance(valor, bool):
+                    continue
+                try:
+                    entero = int(valor)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if entero >= 0 and str(entero) == str(valor).strip():
+                    normalizados[campo] = entero
+            estado = valores.get("estado")
+            if estado in ("Completado", "Pendiente"):
+                normalizados["estado"] = estado
+            if normalizados:
+                cambios.setdefault(bloque, {})[nombre] = normalizados
+    return cambios
+
+
+def aplicar_catalogo_local():
+    for bloque, modulos in cargar_catalogo_local().items():
+        for nombre, cambios in modulos.items():
+            CATALOGO[bloque][nombre].update(cambios)
+
+
+def guardar_catalogo_local(bloque, nombre, datos_modulo):
+    datos = cargar_json(ARCHIVO_TEMARIO, {})
+    if not isinstance(datos, dict):
+        datos = {}
+    catalogo = datos.get("catalogo")
+    if not isinstance(catalogo, dict):
+        catalogo = {}
+    cambios = {
+        campo: int(datos_modulo.get(campo, 0) or 0)
+        for campo in ("clases", "tareas", "evaluaciones")
+    }
+    if "estado" in datos_modulo:
+        cambios["estado"] = datos_modulo["estado"]
+    modulos = catalogo.get(bloque)
+    if not isinstance(modulos, dict):
+        modulos = {}
+        catalogo[bloque] = modulos
+    modulos[nombre] = cambios
+    datos["catalogo"] = catalogo
+    return guardar_json(ARCHIVO_TEMARIO, datos)
 
 
 def obtener_fecha_objetivo(planificacion):
@@ -622,6 +678,7 @@ class ConquerPlanner:
         self.ventana.minsize(1000, 680)
         self.ventana.configure(bg=BG)
         self.planificacion = cargar_planificacion()
+        aplicar_catalogo_local()
         self.pagina_actual = None
         self._configurar_estilos()
         self._construir_shell()
@@ -941,7 +998,12 @@ class ConquerPlanner:
         horas = max(0.0, float(self.planificacion.get("disponibilidad", {}).get(dia, 0) or 0))
         hechas = obtener_horas_registradas_dia(self.planificacion, hoy)
         restantes = max(0.0, horas - hechas)
-        plan = generar_planificacion(CATALOGO, self.planificacion, hoy)
+        plan = generar_planificacion(
+            CATALOGO,
+            self.planificacion,
+            hoy,
+            cargar_tareas(ARCHIVO_TAREAS),
+        )
         asignaciones = plan.get(hoy.isoformat(), [])
         titulo(self.contenido, "Plan de hoy", f"{dia} {hoy.strftime('%d/%m/%Y')} · el plan se genera con tus datos actuales")
 
@@ -965,6 +1027,8 @@ class ConquerPlanner:
                     color = ACCENT
                 elif asignacion["categoria"] == "Inglés":
                     color = "#2563eb"
+                elif asignacion["categoria"] == "Tarea":
+                    color = "#7c3aed"
                 else:
                     color = WARNING
                 self._fila_plan(
@@ -1008,7 +1072,7 @@ class ConquerPlanner:
         tk.Label(self.contenido, text="Cómo se prioriza", font=("Helvetica", 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
         tk.Label(
             self.contenido,
-            text="El máster ocupa primero la disponibilidad. Mientras haya máster pendiente, se reserva también una actividad de inglés al día cuando cabe. Google Antigravity mantiene su sesión semanal del miércoles. Los bonus se programan después del contenido obligatorio y solo al desbloquearse.",
+            text="Las tareas manuales pendientes se programan primero, por prioridad Alta → Media → Baja. Cada una usa la estimación por tarea de Configuración; el tiempo restante se dedica al temario. Se mantienen la sesión semanal de Google Antigravity los miércoles, el inglés cuando cabe y los bonus después del contenido obligatorio.",
             font=("Helvetica", 11),
             fg=MUTED,
             bg=BG,
@@ -1029,7 +1093,7 @@ class ConquerPlanner:
 
     def mostrar_tareas(self):
         limpiar(self.contenido)
-        titulo(self.contenido, "Tareas", "Solo tareas manuales. El plan diario se genera desde el temario para evitar duplicados.")
+        titulo(self.contenido, "Tareas", "Las tareas manuales pendientes aparecen en el plan diario por prioridad; no se generan tareas duplicadas desde el temario.")
         tareas_originales = cargar_tareas(ARCHIVO_TAREAS)
         tareas = self._limpiar_duplicados_tareas(tareas_originales)
         if tareas != tareas_originales and not self._guardar_tareas(tareas):
@@ -1281,7 +1345,134 @@ class ConquerPlanner:
             entrada.insert(0, str(detalle.get("apuntes", 6)))
             entrada.pack()
             entradas["apuntes"] = entrada
-        boton(frame, "Guardar progreso", lambda: self._guardar_modulo(clave, entradas, datos)).pack(anchor="e", pady=(8, 0))
+        acciones = tk.Frame(frame, bg=CARD)
+        acciones.pack(fill="x", pady=(8, 0))
+        if nombre == "Google Antigravity":
+            tk.Label(
+                acciones,
+                text="Clases y apuntes semanales fijos",
+                font=("Helvetica", 9),
+                fg=MUTED,
+                bg=CARD,
+            ).pack(side="left")
+        else:
+            boton(
+                acciones,
+                "Editar sección",
+                lambda: self._editar_seccion(bloque, nombre, datos),
+            ).pack(side="left")
+        boton(
+            acciones,
+            "Guardar progreso",
+            lambda: self._guardar_modulo(clave, entradas, datos),
+        ).pack(side="right")
+
+    def _editar_seccion(self, bloque, nombre, datos):
+        ventana = tk.Toplevel(self.ventana)
+        ventana.title(f"Editar {nombre}")
+        ventana.geometry("460x390")
+        ventana.resizable(False, False)
+        ventana.configure(bg=BG)
+        marco = tk.Frame(
+            ventana,
+            bg=CARD,
+            padx=22,
+            pady=22,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        marco.pack(fill="both", expand=True, padx=18, pady=18)
+        tk.Label(
+            marco,
+            text=f"Editar sección · {nombre}",
+            font=("Helvetica", 17, "bold"),
+            fg=TEXT,
+            bg=CARD,
+        ).pack(anchor="w", pady=(0, 6))
+        tk.Label(
+            marco,
+            text=bloque,
+            font=("Helvetica", 10),
+            fg=MUTED,
+            bg=CARD,
+        ).pack(anchor="w", pady=(0, 14))
+
+        entradas = {}
+        for campo, etiqueta in (
+            ("clases", "Número total de clases"),
+            ("tareas", "Número total de tareas"),
+            ("evaluaciones", "Número total de evaluaciones"),
+        ):
+            tk.Label(
+                marco,
+                text=etiqueta,
+                font=("Helvetica", 10, "bold"),
+                fg=TEXT,
+                bg=CARD,
+            ).pack(anchor="w", pady=(7, 2))
+            entrada = ttk.Entry(marco)
+            entrada.insert(0, str(datos.get(campo, 0) or 0))
+            entrada.pack(fill="x")
+            entradas[campo] = entrada
+
+        completada = tk.BooleanVar(
+            value=estado_modulo(
+                self.planificacion,
+                bloque,
+                nombre,
+                datos,
+            )
+            == "Completado"
+        )
+        tk.Checkbutton(
+            marco,
+            text="Marcar como completada si no tiene actividades",
+            variable=completada,
+            font=("Helvetica", 10),
+            fg=TEXT,
+            bg=CARD,
+            activebackground=CARD,
+            selectcolor=CARD,
+        ).pack(anchor="w", pady=(14, 4))
+
+        def guardar():
+            try:
+                totales = {}
+                for campo, entrada in entradas.items():
+                    texto = entrada.get().strip()
+                    valor = int(texto)
+                    if valor < 0:
+                        raise ValueError
+                    totales[campo] = valor
+            except ValueError:
+                messagebox.showerror(
+                    "Temario",
+                    "Introduce números enteros iguales o mayores que cero.",
+                    parent=ventana,
+                )
+                return
+
+            datos.update(totales)
+            if not any(totales.values()):
+                datos["estado"] = (
+                    "Completado" if completada.get() else "Pendiente"
+                )
+            else:
+                datos.pop("estado", None)
+            if not guardar_catalogo_local(bloque, nombre, datos):
+                messagebox.showerror(
+                    "Temario",
+                    "No se han podido guardar los cambios del temario.",
+                    parent=ventana,
+                )
+                return
+            ventana.destroy()
+            self.mostrar_temario()
+
+        boton(marco, "Guardar cambios", guardar, True).pack(
+            anchor="e",
+            pady=(16, 0),
+        )
 
     def _guardar_modulo(self, clave, entradas, datos):
         valores = {}
@@ -1364,9 +1555,18 @@ class ConquerPlanner:
                 incluir_bonuses_futuros=True,
             ).values()
         )
+        tareas = cargar_tareas(ARCHIVO_TAREAS)
+        tareas_pendientes = [
+            tarea for tarea in tareas if not tarea.get("completada")
+        ]
+        carga_proyectada += (
+            len(tareas_pendientes)
+            * self.planificacion["estimaciones"]["tarea"]
+        )
         calendario_proyectado = generar_planificacion(
             CATALOGO,
             self.planificacion,
+            tareas=tareas,
         )
         horas_asignadas = sum(
             item["horas"]
@@ -1766,7 +1966,12 @@ class ConquerPlanner:
 
     def _mostrar_plan_semana(self):
         hoy = date.today()
-        calendario = generar_planificacion(CATALOGO, self.planificacion, hoy)
+        calendario = generar_planificacion(
+            CATALOGO,
+            self.planificacion,
+            hoy,
+            cargar_tareas(ARCHIVO_TAREAS),
+        )
         horas_registradas = horas_registradas_por_fecha(self.planificacion)
         for offset in range(7):
             fecha = hoy + timedelta(days=offset)
@@ -1915,7 +2120,7 @@ class ConquerPlanner:
         info = tk.Frame(self.contenido, bg=SOFT_AMBER, highlightbackground="#fde68a", highlightthickness=1, padx=18, pady=15)
         info.pack(fill="x", pady=18)
         tk.Label(info, text="Cómo se genera la planificación", font=("Helvetica", 13, "bold"), fg=TEXT, bg=SOFT_AMBER).pack(anchor="w")
-        tk.Label(info, text="• Cada tipo de actividad tiene su estimación editable. Al registrar una sesión, el campo de horas se rellena con la estimación del tipo elegido.\n• Los tiempos reales de las últimas cinco sesiones del mismo módulo y tipo ajustan automáticamente la previsión de las actividades del temario.\n• El plan asigna trabajo pendiente a los días con disponibilidad hasta la fecha objetivo.\n• El máster ocupa primero el tiempo; mientras siga pendiente, se planifica además una actividad diaria de inglés si cabe.\n• Registrar una clase, tarea o evaluación actualiza el progreso correspondiente; una clase de HTML también avanza su siguiente lección y un registro de TFM actualiza su tarea.\n• Antigravity conserva su sesión semanal del miércoles. Los bonus se planifican después del contenido obligatorio.\n• El porcentaje global del máster es una estimación manual; se recalcula el tiempo pendiente al cambiarlo.", font=("Helvetica", 10), fg=TEXT, bg=SOFT_AMBER, justify="left").pack(anchor="w", pady=(7, 0))
+        tk.Label(info, text="• Cada tipo de actividad tiene su estimación editable. Al registrar una sesión, el campo de horas se rellena con la estimación del tipo elegido.\n• Los tiempos reales de las últimas cinco sesiones del mismo módulo y tipo ajustan automáticamente la previsión de las actividades del temario.\n• El plan asigna primero las tareas manuales Alta → Media → Baja y reserva el tiempo disponible restante para el temario hasta la fecha objetivo.\n• El máster ocupa primero el tiempo académico; mientras siga pendiente, se planifica además una actividad diaria de inglés si cabe.\n• Registrar una clase, tarea o evaluación actualiza el progreso correspondiente; una clase de HTML también avanza su siguiente lección y un registro de TFM actualiza su tarea.\n• Antigravity se planifica los miércoles con la disponibilidad restante. Los bonus se planifican después del contenido obligatorio.\n• El porcentaje global del máster es una estimación manual; se recalcula el tiempo pendiente al cambiarlo.", font=("Helvetica", 10), fg=TEXT, bg=SOFT_AMBER, justify="left").pack(anchor="w", pady=(7, 0))
 
     def _guardar_configuracion(self, campos):
         try:
@@ -1970,7 +2175,11 @@ class ConquerPlanner:
             "Calendario",
             "Plan previsto y sesiones reales por día, hasta tu fecha objetivo.",
         )
-        calendario = generar_planificacion(CATALOGO, self.planificacion)
+        calendario = generar_planificacion(
+            CATALOGO,
+            self.planificacion,
+            tareas=cargar_tareas(ARCHIVO_TAREAS),
+        )
         CalendarioAcademico(
             self.contenido,
             self.planificacion.get("actividades_realizadas", []),

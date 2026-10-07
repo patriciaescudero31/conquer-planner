@@ -1,5 +1,6 @@
 import json
 import tkinter as tk
+from copy import deepcopy
 from datetime import date, timedelta
 
 import interfaz
@@ -100,6 +101,138 @@ def test_cargar_planificacion_repara_campos_invalidos(tmp_path, monkeypatch):
         "practica",
         "tfm",
     }
+
+
+def test_catalogo_local_permite_definir_totales_y_estado_del_prework(
+    tmp_path,
+    monkeypatch,
+):
+    archivo = tmp_path / "temario.json"
+    archivo.write_text(
+        json.dumps({"hitos": ["mantener"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(interfaz, "ARCHIVO_TEMARIO", archivo)
+
+    assert interfaz.guardar_catalogo_local(
+        "MÁSTER · PREWORK",
+        "Pseudocódigo",
+        {
+            "clases": 12,
+            "tareas": 2,
+            "evaluaciones": 1,
+            "estado": "Pendiente",
+        },
+    )
+
+    contenido = json.loads(archivo.read_text(encoding="utf-8"))
+    assert contenido["hitos"] == ["mantener"]
+    assert interfaz.cargar_catalogo_local() == {
+        "MÁSTER · PREWORK": {
+            "Pseudocódigo": {
+                "clases": 12,
+                "tareas": 2,
+                "evaluaciones": 1,
+                "estado": "Pendiente",
+            }
+        }
+    }
+
+
+def test_catalogo_local_ignora_totales_invalidos(tmp_path, monkeypatch):
+    archivo = tmp_path / "temario.json"
+    archivo.write_text(
+        json.dumps(
+            {
+                "catalogo": {
+                    "MÁSTER · PREWORK": {
+                        "Pseudocódigo": {
+                            "clases": -1,
+                            "tareas": "no es un número",
+                            "evaluaciones": 2,
+                            "estado": "desconocido",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(interfaz, "ARCHIVO_TEMARIO", archivo)
+
+    assert interfaz.cargar_catalogo_local() == {
+        "MÁSTER · PREWORK": {
+            "Pseudocódigo": {"evaluaciones": 2}
+        }
+    }
+
+
+def test_aplicar_catalogo_local_actualiza_totales_y_estado(
+    tmp_path,
+    monkeypatch,
+):
+    archivo = tmp_path / "temario.json"
+    archivo.write_text(
+        json.dumps(
+            {
+                "catalogo": {
+                    "MÁSTER · PREWORK": {
+                        "Pseudocódigo": {
+                            "clases": 8,
+                            "tareas": 1,
+                            "evaluaciones": 0,
+                            "estado": "Pendiente",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(interfaz, "ARCHIVO_TEMARIO", archivo)
+    monkeypatch.setattr(interfaz, "CATALOGO", deepcopy(interfaz.CATALOGO))
+
+    interfaz.aplicar_catalogo_local()
+
+    datos = interfaz.CATALOGO["MÁSTER · PREWORK"]["Pseudocódigo"]
+    assert datos["clases"] == 8
+    assert datos["tareas"] == 1
+    assert interfaz.progreso_modulo(
+        {"progreso_tema": {}},
+        "MÁSTER · PREWORK",
+        "Pseudocódigo",
+        datos,
+    ) == 0
+    assert len(
+        _trabajo_modulo(
+            {},
+            "MÁSTER · PREWORK",
+            "Pseudocódigo",
+            datos,
+        )
+    ) == 9
+
+
+def test_seccion_sin_actividades_puede_marcarse_completada():
+    datos = {
+        "clases": 0,
+        "tareas": 0,
+        "evaluaciones": 0,
+        "estado": "Completado",
+    }
+
+    assert interfaz.progreso_modulo(
+        {"progreso_tema": {}},
+        "MÁSTER · PREWORK",
+        "Pseudocódigo",
+        datos,
+    ) == 100
+    assert interfaz.estado_modulo(
+        {"progreso_tema": {}},
+        "MÁSTER · PREWORK",
+        "Pseudocódigo",
+        datos,
+    ) == "Completado"
 
 
 def test_horas_ultima_semana_usa_ventana_de_siete_dias():

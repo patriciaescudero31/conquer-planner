@@ -235,6 +235,36 @@ def _cola_trabajo(catalogo, planificacion, incluir_bonuses_futuros=False):
     return cola
 
 
+def _cola_tareas(tareas, planificacion):
+    prioridades = {"Alta": 0, "Media": 1, "Baja": 2}
+    pendientes = []
+    for posicion, tarea in enumerate(tareas or []):
+        if not isinstance(tarea, dict) or tarea.get("completada"):
+            continue
+        nombre = str(tarea.get("nombre", "")).strip()
+        if not nombre:
+            continue
+        prioridad = tarea.get("prioridad", "Media")
+        if prioridad not in prioridades:
+            prioridad = "Media"
+        categoria = str(tarea.get("categoria", "General")).strip() or "General"
+        pendientes.append(
+            (
+                prioridades[prioridad],
+                posicion,
+                {
+                    "categoria": "Tarea",
+                    "bloque": "Tareas personales",
+                    "modulo": nombre,
+                    "detalle": f"Prioridad {prioridad} · {categoria}",
+                    "horas": _horas_estimadas(planificacion, "tarea"),
+                },
+            )
+        )
+    pendientes.sort(key=lambda item: (item[0], item[1]))
+    return [trabajo for _, _, trabajo in pendientes]
+
+
 def horas_registradas_por_fecha(planificacion):
     resultado = {}
     for fecha, horas in planificacion.get("horas_realizadas", {}).items():
@@ -253,7 +283,7 @@ def horas_registradas_por_fecha(planificacion):
     return resultado
 
 
-def generar_planificacion(catalogo, planificacion, fecha_inicio=None):
+def generar_planificacion(catalogo, planificacion, fecha_inicio=None, tareas=None):
     """Reparte trabajo pendiente en los huecos disponibles hasta el objetivo."""
     inicio = fecha_inicio or date.today()
     try:
@@ -269,10 +299,11 @@ def generar_planificacion(catalogo, planificacion, fecha_inicio=None):
     disponibilidad = planificacion.get("disponibilidad", {})
     registradas = horas_registradas_por_fecha(planificacion)
     cola = _cola_trabajo(catalogo, planificacion, incluir_bonuses_futuros=True)
+    cola_tareas = _cola_tareas(tareas, planificacion)
     calendario = {}
     fecha = inicio
 
-    while fecha <= objetivo and cola:
+    while fecha <= objetivo and (cola or cola_tareas):
         clave_fecha = fecha.isoformat()
         dia = DIAS_SEMANA[fecha.weekday()]
         try:
@@ -281,6 +312,37 @@ def generar_planificacion(catalogo, planificacion, fecha_inicio=None):
             capacidad = 0.0
         capacidad = max(0.0, capacidad - registradas.get(clave_fecha, 0.0))
         asignaciones = []
+
+        def asignar(categoria, limite, permitir_antigravity=False, trabajos=None):
+            nonlocal capacidad
+            cola_asignacion = cola if trabajos is None else trabajos
+            asignadas = 0.0
+            while capacidad > 0 and asignadas < limite:
+                presupuesto = min(capacidad, limite - asignadas)
+                siguiente = next(
+                    (
+                        posicion
+                        for posicion, trabajo in enumerate(cola_asignacion)
+                        if (
+                            trabajo["categoria"] == categoria
+                            and (
+                                permitir_antigravity
+                                or trabajo["modulo"] != "Google Antigravity"
+                            )
+                            and trabajo["horas"] <= presupuesto
+                        )
+                    ),
+                    None,
+                )
+                if siguiente is None:
+                    break
+                trabajo = cola_asignacion.pop(siguiente)
+                asignaciones.append(trabajo.copy())
+                capacidad -= trabajo["horas"]
+                asignadas += trabajo["horas"]
+            return asignadas
+
+        asignar("Tarea", capacidad, trabajos=cola_tareas)
 
         if dia == "Miércoles" and capacidad > 0:
             antigravity = next(
@@ -298,34 +360,6 @@ def generar_planificacion(catalogo, planificacion, fecha_inicio=None):
                 trabajo = cola.pop(antigravity)
                 asignaciones.append(trabajo.copy())
                 capacidad -= trabajo["horas"]
-
-        def asignar(categoria, limite, permitir_antigravity=False):
-            nonlocal capacidad
-            asignadas = 0.0
-            while capacidad > 0 and asignadas < limite:
-                presupuesto = min(capacidad, limite - asignadas)
-                siguiente = next(
-                    (
-                        posicion
-                        for posicion, trabajo in enumerate(cola)
-                        if (
-                            trabajo["categoria"] == categoria
-                            and (
-                                permitir_antigravity
-                                or trabajo["modulo"] != "Google Antigravity"
-                            )
-                            and trabajo["horas"] <= presupuesto
-                        )
-                    ),
-                    None,
-                )
-                if siguiente is None:
-                    break
-                trabajo = cola.pop(siguiente)
-                asignaciones.append(trabajo.copy())
-                capacidad -= trabajo["horas"]
-                asignadas += trabajo["horas"]
-            return asignadas
 
         master_pendiente = any(item["categoria"] == "Máster" for item in cola)
         ingles_pendiente = any(item["categoria"] == "Inglés" for item in cola)
@@ -373,7 +407,7 @@ def generar_planificacion(catalogo, planificacion, fecha_inicio=None):
                         }
                     )
             calendario[clave_fecha] = agrupadas
-        if not cola:
+        if not cola and not cola_tareas:
             break
         fecha += timedelta(days=1)
 
