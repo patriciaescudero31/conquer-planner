@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 .DS_Store
+.pytest_cache/
 tareas.json
 planificacion.json
+temario.json
 GUIA_PROYECTO.md
+DATOS_ACADEMICOS_CONQUER_PLANNER.md

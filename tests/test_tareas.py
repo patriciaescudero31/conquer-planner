@@ -52,7 +52,12 @@ def test_cargar_tareas_corrige_datos_invalidos(tmp_path):
             "nombre": "",
             "prioridad": "Alta",
         },
+        {
+            "nombre": "Fecha incorrecta",
+            "fecha_limite": "31/02/2026",
+        },
         123,
+        "",
     ]
 
     archivo.write_text(
@@ -62,11 +67,12 @@ def test_cargar_tareas_corrige_datos_invalidos(tmp_path):
 
     tareas = cargar_tareas(archivo)
 
-    assert len(tareas) == 1
+    assert len(tareas) == 2
     assert tareas[0]["nombre"] == "Tarea válida"
     assert tareas[0]["prioridad"] == "Media"
     assert tareas[0]["categoria"] == "General"
     assert tareas[0]["completada"] is True
+    assert tareas[1]["fecha_limite"] == ""
 
 
 def test_cargar_tareas_con_json_no_lista(tmp_path):
@@ -101,7 +107,7 @@ def test_guardar_tareas_y_volver_a_cargarlas(tmp_path):
         }
     ]
 
-    guardar_tareas(tareas_originales, archivo)
+    assert guardar_tareas(tareas_originales, archivo) is True
 
     tareas_cargadas = cargar_tareas(archivo)
 
@@ -125,7 +131,7 @@ def test_guardar_tareas_muestra_error_si_no_puede_guardar(
         }
     ]
 
-    guardar_tareas(tareas, archivo)
+    assert guardar_tareas(tareas, archivo) is False
 
     salida = capsys.readouterr().out
 

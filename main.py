@@ -1,6 +1,8 @@
 from datetime import datetime
 from pathlib import Path
 import json
+import math
+import sys
 
 from tareas import (
     añadir_tarea,
@@ -17,8 +19,9 @@ from utilidades import (
 )
 
 
-ARCHIVO_TAREAS = Path("tareas.json")
-ARCHIVO_PLANIFICACION = Path("planificacion.json")
+BASE_DIR = Path(__file__).resolve().parent
+ARCHIVO_TAREAS = BASE_DIR / "tareas.json"
+ARCHIVO_PLANIFICACION = BASE_DIR / "planificacion.json"
 
 PRIORIDADES = {
     "1": "Alta",
@@ -115,6 +118,30 @@ def cargar_planificacion():
         if not isinstance(datos, dict):
             raise ValueError
 
+        defecto = crear_planificacion_por_defecto()
+        fecha = datos.get("fecha_objetivo")
+        if not isinstance(fecha, str) or not fecha or not validar_fecha(fecha):
+            datos["fecha_objetivo"] = defecto["fecha_objetivo"]
+        try:
+            horas_estimadas = float(datos.get("horas_estimadas", defecto["horas_estimadas"]))
+            if not math.isfinite(horas_estimadas) or horas_estimadas < 0:
+                raise ValueError
+        except (TypeError, ValueError, OverflowError):
+            horas_estimadas = defecto["horas_estimadas"]
+        datos["horas_estimadas"] = horas_estimadas
+
+        disponibilidad = datos.get("disponibilidad")
+        if not isinstance(disponibilidad, dict):
+            disponibilidad = {}
+        datos["disponibilidad"] = {}
+        for dia, horas_defecto in defecto["disponibilidad"].items():
+            try:
+                horas = float(disponibilidad.get(dia, horas_defecto))
+                if not math.isfinite(horas) or horas < 0:
+                    raise ValueError
+            except (TypeError, ValueError, OverflowError):
+                horas = horas_defecto
+            datos["disponibilidad"][dia] = horas
         return datos
 
     except (json.JSONDecodeError, OSError, ValueError):
@@ -162,7 +189,7 @@ def configurar_planificacion(planificacion):
         "Fecha objetivo (DD/MM/AAAA): "
     ).strip()
 
-    if not validar_fecha(fecha):
+    if not fecha or not validar_fecha(fecha):
         print()
         print(
             "Fecha no válida. Usa DD/MM/AAAA."
@@ -180,18 +207,16 @@ def configurar_planificacion(planificacion):
         print("Introduce un número válido.")
         return
 
-    if horas < 0:
+    if not math.isfinite(horas) or horas < 0:
         print()
         print("Las horas no pueden ser negativas.")
         return
-
-    planificacion["fecha_objetivo"] = fecha
-    planificacion["horas_estimadas"] = horas
 
     print()
     print("Disponibilidad semanal:")
     print()
 
+    disponibilidad = {}
     for dia in DIAS_SEMANA:
         try:
             horas_dia = float(
@@ -204,13 +229,16 @@ def configurar_planificacion(planificacion):
             print("Introduce un número válido.")
             return
 
-        if horas_dia < 0:
+        if not math.isfinite(horas_dia) or horas_dia < 0:
             print()
             print("Las horas no pueden ser negativas.")
             return
 
-        planificacion["disponibilidad"][dia] = horas_dia
+        disponibilidad[dia] = horas_dia
 
+    planificacion["fecha_objetivo"] = fecha
+    planificacion["horas_estimadas"] = horas
+    planificacion["disponibilidad"] = disponibilidad
     guardar_planificacion(planificacion)
 
     print()
@@ -416,4 +444,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--cli" in sys.argv[1:]:
+        main()
+    else:
+        from interfaz import crear_ventana
+
+        crear_ventana()

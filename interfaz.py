@@ -1,36 +1,67 @@
 import json
+import math
+import sys
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from pathlib import Path
-from datetime import datetime, date, timedelta
-
+from datetime import date, datetime, timedelta
+from pomodoro import Pomodoro
+from calendario import CalendarioAcademico
 from tareas import cargar_tareas, guardar_tareas
 from utilidades import calcular_horas_hasta_objetivo
+from estadisticas import (
+    horas_totales,
+    horas_por_modulo,
+    horas_ultima_semana
+)
+from planificador import (
+    calcular_carga_pendiente,
+    generar_planificacion,
+    horas_registradas_por_fecha,
+)
 
 
-ARCHIVO_TAREAS = Path("tareas.json")
-ARCHIVO_PLANIFICACION = Path("planificacion.json")
+BASE_DIR = Path(__file__).resolve().parent
+ARCHIVO_TAREAS = BASE_DIR / "tareas.json"
+ARCHIVO_PLANIFICACION = BASE_DIR / "planificacion.json"
+ARCHIVO_TEMARIO = BASE_DIR / "temario.json"
 
 DIAS_SEMANA = [
     "Lunes", "Martes", "Miércoles", "Jueves",
     "Viernes", "Sábado", "Domingo",
 ]
 
-MESES = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-]
+# ---------------------------------------------------------------------------
+# Identidad visual
+# ---------------------------------------------------------------------------
+BG = "#f8fafc"
+CARD = "#ffffff"
+SIDEBAR = "#0f172a"
+TEXT = "#111827"
+MUTED = "#64748b"
+BORDER = "#e2e8f0"
+ACCENT = "#0d9488"
+ACCENT_DARK = "#0f766e"
+SUCCESS = "#10b981"
+WARNING = "#f59e0b"
+DANGER = "#ef4444"
+SOFT_TEAL = "#ccfbf1"
+SOFT_RED = "#fee2e2"
+SOFT_AMBER = "#fef3c7"
 
-# Datos académicos que ya tenemos confirmados.
-TEMARIO = {
+
+# ---------------------------------------------------------------------------
+# Catálogo académico. Los datos que cambian viven en planificacion.json.
+# ---------------------------------------------------------------------------
+CATALOGO = {
     "MÁSTER · PREWORK": {
         "Pseudocódigo": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Completado"},
         "Linux y terminal": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Completado"},
         "Python": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Completado"},
         "GitHub": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Completado"},
         "SQL": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Completado"},
-        "Automatizaciones y agentes": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Apuntes pendientes"},
-        "IA · Google Antigravity": {"temas": 0, "clases": 7, "tareas": 0, "evaluaciones": 0, "estado": "7 clases pendientes"},
+        "Creación de agentes · apuntes": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 0, "estado": "Completado"},
+        "Google Antigravity": {"temas": 1, "clases": 10, "tareas": 0, "evaluaciones": 0, "apuntes": 10, "estado": "Clase semanal fija"},
     },
     "MÁSTER · FRONTEND": {
         "HTML": {"temas": 8, "clases": 27, "tareas": 2, "evaluaciones": 3},
@@ -52,23 +83,8 @@ TEMARIO = {
         "Propuestas laborales": {"temas": 3, "clases": 10, "tareas": 0, "evaluaciones": 0},
         "Proyecto de Fin de Máster": {"temas": 1, "clases": 0, "tareas": 1, "evaluaciones": 0},
     },
-    "BONUS · BACKEND EXPERTO": {
-        "SQL avanzado": {"temas": 5, "clases": 14, "tareas": 0, "evaluaciones": 1},
-        "WordPress": {"temas": 9, "clases": 22, "tareas": 1, "evaluaciones": 1},
-        "Streamlit": {"temas": 3, "clases": 6, "tareas": 0, "evaluaciones": 1},
-        "Java": {"temas": 5, "clases": 16, "tareas": 0, "evaluaciones": 1},
-        "Node.js": {"temas": 6, "clases": 16, "tareas": 0, "evaluaciones": 0},
-        "Rust": {"temas": 7, "clases": 14, "tareas": 0, "evaluaciones": 1},
-        "Go": {"temas": 7, "clases": 8, "tareas": 0, "evaluaciones": 0},
-    },
-    "BONUS · FRONTEND EXPERTO": {
-        "React con TypeScript": {"temas": 9, "clases": 16, "tareas": 0, "evaluaciones": 1},
-        "React JS avanzado con TypeScript": {"temas": 7, "clases": 7, "tareas": 0, "evaluaciones": 0},
-        "Astro": {"temas": 9, "clases": 12, "tareas": 0, "evaluaciones": 1},
-        "Angular": {"temas": 8, "clases": 8, "tareas": 0, "evaluaciones": 1},
-        "Vue JS": {"temas": 5, "clases": 5, "tareas": 0, "evaluaciones": 0},
-    },
     "INGLÉS": {
+        "Unidades 1–9": {"temas": 9, "clases": 30, "tareas": 0, "evaluaciones": 0},
         "Unidad 10": {"temas": 1, "clases": 4, "tareas": 0, "evaluaciones": 0},
         "Unidad 11": {"temas": 1, "clases": 3, "tareas": 0, "evaluaciones": 0},
         "Unidad 12": {"temas": 1, "clases": 4, "tareas": 0, "evaluaciones": 0},
@@ -84,62 +100,177 @@ TEMARIO = {
         "Bonus inglés": {"temas": 0, "clases": 12, "tareas": 0, "evaluaciones": 0},
         "Evaluación final": {"temas": 0, "clases": 0, "tareas": 0, "evaluaciones": 1},
     },
+    "BONUS · FRONTEND": {
+        "React con TypeScript": {"temas": 9, "clases": 16, "tareas": 0, "evaluaciones": 1},
+        "Astro": {"temas": 9, "clases": 12, "tareas": 0, "evaluaciones": 1},
+        "Angular": {"temas": 8, "clases": 8, "tareas": 0, "evaluaciones": 1},
+        "Vue JS": {"temas": 5, "clases": 5, "tareas": 0, "evaluaciones": 0},
+    },
+    "BONUS · BACKEND": {
+        "SQL avanzado": {"temas": 5, "clases": 14, "tareas": 0, "evaluaciones": 1},
+        "WordPress": {"temas": 9, "clases": 22, "tareas": 1, "evaluaciones": 1},
+        "Streamlit": {"temas": 3, "clases": 6, "tareas": 0, "evaluaciones": 1},
+        "Java": {"temas": 5, "clases": 16, "tareas": 0, "evaluaciones": 1},
+        "Node.js": {"temas": 6, "clases": 16, "tareas": 0, "evaluaciones": 0},
+        "Rust": {"temas": 7, "clases": 14, "tareas": 0, "evaluaciones": 1},
+        "Go": {"temas": 7, "clases": 8, "tareas": 0, "evaluaciones": 0},
+        "Docker al completo": {"temas": 1, "clases": 20, "tareas": 0, "evaluaciones": 1},
+    },
     "BONUS · PRODUCTIVIDAD": {
         "Productividad": {"temas": 1, "clases": 7, "tareas": 0, "evaluaciones": 0},
     },
-    "BONUS · IA PARA EL DESARROLLO": {
-        "Uso de inteligencia artificial para el desarrollo": {"temas": 3, "clases": 4, "tareas": 0, "evaluaciones": 0},
-    },
-    "BONUS · DOCKER": {
-        "Docker al completo": {"temas": 1, "clases": 20, "tareas": 0, "evaluaciones": 1},
+    "BONUS · IA": {
+        "IA para el desarrollo": {"temas": 3, "clases": 4, "tareas": 0, "evaluaciones": 0},
     },
 }
 
 
-def cargar_planificacion():
-    if not ARCHIVO_PLANIFICACION.exists():
-        return {}
+def cargar_json(ruta, defecto):
+    if not ruta.exists():
+        return defecto
     try:
-        with open(ARCHIVO_PLANIFICACION, "r", encoding="utf-8") as archivo:
+        with open(ruta, "r", encoding="utf-8") as archivo:
             datos = json.load(archivo)
-        return datos if isinstance(datos, dict) else {}
+        return datos if isinstance(datos, type(defecto)) else defecto
     except (json.JSONDecodeError, OSError):
-        return {}
+        return defecto
 
 
-def guardar_planificacion_datos(planificacion):
+def guardar_json(ruta, datos):
     try:
-        with open(ARCHIVO_PLANIFICACION, "w", encoding="utf-8") as archivo:
-            json.dump(planificacion, archivo, ensure_ascii=False, indent=4)
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        with open(ruta, "w", encoding="utf-8") as archivo:
+            json.dump(datos, archivo, ensure_ascii=False, indent=4)
         return True
     except OSError:
-        messagebox.showerror("Error", "No se pudo guardar la planificación.")
         return False
 
 
-def preparar_planificacion(planificacion):
-    planificacion.setdefault("fecha_objetivo", "31/03/2027")
-    planificacion.setdefault("horas_semanales_objetivo", 33.0)
-    planificacion.setdefault("horas_realizadas", {})
-    planificacion.setdefault("actividades_realizadas", [])
-    planificacion.setdefault("disponibilidad", {dia: 0.0 for dia in DIAS_SEMANA})
-    planificacion.setdefault("porcentaje_master", 35.0)
-    planificacion.setdefault("porcentaje_ingles", 29.0)
-    planificacion.setdefault("clases_ingles_completadas", 30)
-    planificacion.setdefault("progreso_tema", {})
-    planificacion.setdefault("horas_totales_master", 0.0)
-    guardar_planificacion_datos(planificacion)
-    return planificacion
+def cargar_planificacion():
+    datos = cargar_json(ARCHIVO_PLANIFICACION, {})
+    disponibilidad = datos.get("disponibilidad")
+    if not isinstance(disponibilidad, dict):
+        disponibilidad = {}
+    datos["disponibilidad"] = {
+        dia: _numero_no_negativo(disponibilidad.get(dia), 0.0)
+        for dia in DIAS_SEMANA
+    }
+    datos["horas_estimadas"] = _numero_no_negativo(datos.get("horas_estimadas"), 500.0)
+    datos["porcentaje_master"] = min(
+        100.0, _numero_no_negativo(datos.get("porcentaje_master"), 36.0)
+    )
+    datos["horas_semanales_objetivo"] = _numero_no_negativo(
+        datos.get("horas_semanales_objetivo"), 35.0
+    )
+    estimaciones = datos.get("estimaciones")
+    if not isinstance(estimaciones, dict):
+        estimaciones = {}
+    datos["estimaciones"] = {
+        tipo: _numero_no_negativo(estimaciones.get(tipo), 1.0) or 1.0
+        for tipo in (
+            "clase",
+            "apuntes",
+            "clase_apuntes",
+            "tarea",
+            "evaluacion",
+            "tutoria",
+            "clase_directo",
+            "practica",
+            "tfm",
+        )
+    }
+
+    try:
+        clases_ingles = int(datos.get("clases_ingles_completadas", 41))
+    except (TypeError, ValueError, OverflowError):
+        clases_ingles = 41
+    datos["clases_ingles_completadas"] = max(0, min(102, clases_ingles))
+
+    try:
+        datetime.strptime(str(datos.get("fecha_objetivo", "31/03/2027")), "%d/%m/%Y")
+    except (TypeError, ValueError):
+        datos["fecha_objetivo"] = "31/03/2027"
+    horas_realizadas = datos.get("horas_realizadas")
+    if not isinstance(horas_realizadas, dict):
+        horas_realizadas = {}
+    datos["horas_realizadas"] = {
+        fecha: _numero_no_negativo(horas, 0.0)
+        for fecha, horas in horas_realizadas.items()
+    }
+    if not isinstance(datos.get("actividades_realizadas"), list):
+        datos["actividades_realizadas"] = []
+    datos["actividades_realizadas"] = [
+        actividad
+        for actividad in datos["actividades_realizadas"]
+        if isinstance(actividad, dict)
+    ]
+    if not isinstance(datos.get("progreso_tema"), dict):
+        datos["progreso_tema"] = {}
+    datos["progreso_tema"] = {
+        clave: {
+            campo: _entero_no_negativo(valor)
+            for campo, valor in progreso.items()
+        }
+        for clave, progreso in datos["progreso_tema"].items()
+        if isinstance(progreso, dict)
+    }
+    detalle_modulo = datos.get("detalle_modulo")
+    if not isinstance(detalle_modulo, dict):
+        detalle_modulo = {}
+    else:
+        detalle_modulo = {
+            modulo: detalle
+            for modulo, detalle in detalle_modulo.items()
+            if isinstance(detalle, dict)
+        }
+    datos["detalle_modulo"] = detalle_modulo
+    detalle_modulo.setdefault("HTML", {"tema_1": 7, "tema_2": 0})
+    detalle_modulo.setdefault("Google Antigravity", {"apuntes": 6})
+    detalle_modulo["HTML"]["tema_1"] = min(
+        7, _entero_no_negativo(detalle_modulo["HTML"].get("tema_1"), 7)
+    )
+    detalle_modulo["HTML"]["tema_2"] = min(
+        6, _entero_no_negativo(detalle_modulo["HTML"].get("tema_2"), 0)
+    )
+    detalle_modulo["Google Antigravity"]["apuntes"] = min(
+        10, _entero_no_negativo(detalle_modulo["Google Antigravity"].get("apuntes"), 6)
+    )
+    datos["porcentaje_ingles"] = round(datos["clases_ingles_completadas"] / 102 * 100, 1)
+    return datos
 
 
-def crear_titulo(contenido, titulo, subtitulo):
-    tk.Label(contenido, text=titulo, font=("Helvetica", 28, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(10, 5))
-    tk.Label(contenido, text=subtitulo, font=("Helvetica", 14), fg="#555555", bg="#f7f7f7").pack(anchor="w", pady=(0, 25))
+def _numero_no_negativo(valor, defecto):
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError, OverflowError):
+        return defecto
+    if not math.isfinite(numero) or numero < 0:
+        return defecto
+    return numero
 
 
-def limpiar_contenido(contenido):
-    for widget in contenido.winfo_children():
-        widget.destroy()
+def _entero_no_negativo(valor, defecto=0):
+    try:
+        numero = int(valor)
+    except (TypeError, ValueError, OverflowError):
+        return defecto
+    return max(0, numero)
+
+
+def guardar_planificacion(planificacion):
+    planificacion["porcentaje_ingles"] = round(
+        max(0, min(102, int(planificacion.get("clases_ingles_completadas", 0)))) / 102 * 100,
+        1,
+    )
+    return guardar_json(ARCHIVO_PLANIFICACION, planificacion)
+
+
+def cargar_catalogo_local():
+    """Mantiene temario.json como catálogo editable sin obligar a tocar Python."""
+    datos = cargar_json(ARCHIVO_TEMARIO, {})
+    if not isinstance(datos, dict):
+        datos = {}
+    return datos
 
 
 def obtener_fecha_objetivo(planificacion):
@@ -149,991 +280,1521 @@ def obtener_fecha_objetivo(planificacion):
         return date(2027, 3, 31)
 
 
-def obtener_progreso_academico(planificacion):
-    try:
-        return max(0.0, min(100.0, float(planificacion.get("porcentaje_master", 35.0))))
-    except (ValueError, TypeError):
-        return 35.0
+def progreso_modulo(planificacion, bloque, nombre, datos):
+    if bloque == "INGLÉS" and nombre == "Unidades 1–9":
+        progreso = planificacion.get("progreso_tema", {}).get(
+            f"{bloque}|{nombre}", {}
+        )
+        hechas = min(
+            30,
+            _entero_no_negativo(
+                progreso.get("clases", planificacion.get("clases_ingles_completadas", 0))
+            ),
+        )
+        return 100.0 if hechas >= 30 else hechas / 30 * 100
+    clave = f"{bloque}|{nombre}"
+    guardado = planificacion.get("progreso_tema", {}).get(clave, {})
+    partes = []
+    for campo in ("clases", "tareas", "evaluaciones"):
+        total = int(datos.get(campo, 0) or 0)
+        if total:
+            hechas = max(0, min(total, int(guardado.get(campo, 0) or 0)))
+            partes.append((hechas, total))
+    if not partes:
+        return 100.0 if datos.get("estado") == "Completado" else 0.0
+    return sum(hechas for hechas, _ in partes) / sum(total for _, total in partes) * 100
 
 
-def obtener_progreso_ingles(planificacion):
-    try:
-        return max(0.0, min(100.0, float(planificacion.get("porcentaje_ingles", 29.0))))
-    except (ValueError, TypeError):
-        return 29.0
+def estado_modulo(planificacion, bloque, nombre, datos):
+    progreso = progreso_modulo(planificacion, bloque, nombre, datos)
+    if progreso >= 100:
+        return "Completado"
+    if progreso > 0:
+        return "En curso"
+    if datos.get("estado"):
+        return datos["estado"]
+    return "Pendiente"
 
 
-def calcular_semanas_restantes(fecha_objetivo):
-    dias = (fecha_objetivo - date.today()).days
-    return 0 if dias <= 0 else max(1, (dias + 6) // 7)
+def pendientes_modulo(planificacion, bloque, nombre, datos):
+    if bloque == "INGLÉS" and nombre == "Unidades 1–9":
+        hechas = min(
+            30,
+            _entero_no_negativo(
+                planificacion.get("progreso_tema", {})
+                .get(f"{bloque}|{nombre}", {})
+                .get("clases", planificacion.get("clases_ingles_completadas", 0))
+            ),
+        )
+        return [f"clase {hechas + 1}/30"] if hechas < 30 else []
+    if bloque == "MÁSTER · FRONTEND" and nombre == "HTML":
+        detalle = planificacion.get("detalle_modulo", {}).get("HTML", {})
+        tema1 = int(detalle.get("tema_1", 7) or 0)
+        tema2 = int(detalle.get("tema_2", 0) or 0)
+        pendientes = []
+        if tema1 < 7:
+            pendientes.append(f"Tema 1 · clase {tema1 + 1}/7")
+        elif tema2 < 6:
+            pendientes.append(f"Tema 2 · clase {tema2 + 1}/6")
+        else:
+            hechas = _entero_no_negativo(
+                planificacion.get("progreso_tema", {})
+                .get("MÁSTER · FRONTEND|HTML", {})
+                .get("clases", 0)
+            )
+            if hechas < int(datos.get("clases", 0) or 0):
+                pendientes.append(f"clase {hechas + 1}/{datos['clases']}")
+        guardado = planificacion.get("progreso_tema", {}).get(
+            "MÁSTER · FRONTEND|HTML", {}
+        )
+        for campo, etiqueta in (("tareas", "tarea"), ("evaluaciones", "evaluación")):
+            total = int(datos.get(campo, 0) or 0)
+            hechas = _entero_no_negativo(guardado.get(campo, 0))
+            if hechas < total:
+                pendientes.append(f"{etiqueta} {hechas + 1}/{total}")
+        return pendientes
+    clave = f"{bloque}|{nombre}"
+    guardado = planificacion.get("progreso_tema", {}).get(clave, {})
+    pendientes = []
+    if nombre == "Google Antigravity":
+        apuntes = int(planificacion.get("detalle_modulo", {}).get("Google Antigravity", {}).get("apuntes", 6) or 0)
+        if apuntes < 10:
+            pendientes.append(f"apuntes {apuntes + 1}/10")
+    for campo, etiqueta in (("clases", "clase"), ("tareas", "tarea"), ("evaluaciones", "evaluación")):
+        total = int(datos.get(campo, 0) or 0)
+        hechas = max(0, min(total, int(guardado.get(campo, 0) or 0)))
+        if total > hechas:
+            pendientes.append(f"{etiqueta} {hechas + 1}/{total}")
+    if not pendientes and datos.get("estado") and datos.get("estado") != "Completado":
+        pendientes.append(str(datos["estado"]))
+    return pendientes
 
 
-def calcular_horas_necesarias(planificacion, fecha_objetivo):
-    semanas = calcular_semanas_restantes(fecha_objetivo)
-    try:
-        horas_totales = float(planificacion.get("horas_totales_master", 0))
-    except (ValueError, TypeError):
-        horas_totales = 0.0
-    if horas_totales <= 0 or semanas <= 0:
-        return 0.0
-    return horas_totales * (100 - obtener_progreso_academico(planificacion)) / 100 / semanas
+def modulo_pendiente(planificacion, bloque, nombre, datos):
+    return bool(pendientes_modulo(planificacion, bloque, nombre, datos))
 
 
-def obtener_semana_actual():
-    hoy = date.today()
-    inicio = hoy - timedelta(days=hoy.weekday())
-    return inicio, inicio + timedelta(days=6)
+def obtener_pendientes_por_prioridad(planificacion):
+    master, ingles, bonus = [], [], []
+    for bloque, modulos in CATALOGO.items():
+        for nombre, datos in modulos.items():
+            pendientes = pendientes_modulo(planificacion, bloque, nombre, datos)
+            if not pendientes:
+                continue
+            item = {
+                "bloque": bloque,
+                "nombre": nombre,
+                "pendiente": ", ".join(pendientes[:2]),
+                "horas": max(1.0, min(4.0, len(pendientes))),
+            }
+            if bloque.startswith("MÁSTER"):
+                master.append(item)
+            elif bloque == "INGLÉS":
+                ingles.append(item)
+            elif bloque.startswith("BONUS"):
+                bonus.append(item)
+    orden_master = [
+        "Google Antigravity", "HTML", "CSS", "JavaScript", "React JS",
+        "Diseña con IA", "Django", "Agentes CLI", "Despliegue", "SEO",
+        "Preparación de entrevistas", "Metodologías ágiles y Scrum",
+        "Soft Skills", "Propuestas laborales", "Proyecto de Fin de Máster",
+    ]
+    posicion = {nombre: i for i, nombre in enumerate(orden_master)}
+    if date.today().weekday() == 2:
+        posicion["Google Antigravity"] = -1
+    else:
+        posicion["Google Antigravity"] = 50
+    master.sort(key=lambda x: posicion.get(x["nombre"], 999))
+    ingles.sort(key=lambda x: x["nombre"])
+    bonus.sort(key=lambda x: x["nombre"])
+    return master, ingles, bonus
 
 
-def obtener_horas_registradas_semana(planificacion, inicio):
-    total = 0.0
-    registros = planificacion.get("horas_realizadas", {})
-    for i in range(7):
-        try:
-            total += float(registros.get((inicio + timedelta(days=i)).isoformat(), 0))
-        except (ValueError, TypeError):
-            pass
-    return total
+def frontend_completo(planificacion):
+    bloque = CATALOGO["MÁSTER · FRONTEND"]
+    return all(progreso_modulo(planificacion, "MÁSTER · FRONTEND", n, d) >= 100 for n, d in bloque.items())
 
 
-def obtener_horas_disponibles_semana(planificacion):
-    total = 0.0
-    for dia in DIAS_SEMANA:
-        try:
-            total += max(0.0, float(planificacion.get("disponibilidad", {}).get(dia, 0)))
-        except (ValueError, TypeError):
-            pass
-    return total
-
-
-def crear_tarjeta(contenedor, titulo, valor, fila, columna):
-    tarjeta = tk.Frame(contenedor, relief="solid", borderwidth=1, padx=20, pady=20, bg="#ffffff")
-    tarjeta.grid(row=fila, column=columna, padx=8, pady=8, sticky="nsew")
-    tk.Label(tarjeta, text=titulo, font=("Helvetica", 12), fg="#555555", bg="#ffffff").pack(anchor="w")
-    tk.Label(tarjeta, text=valor, font=("Helvetica", 22, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w", pady=(10, 0))
-
-
-def obtener_datos_inicio():
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    planificacion = preparar_planificacion(cargar_planificacion())
-    completadas = sum(1 for tarea in tareas if tarea.get("completada", False))
-    fecha = obtener_fecha_objetivo(planificacion)
-    return {
-        "fecha": fecha.strftime("%d/%m/%Y"),
-        "progreso": obtener_progreso_academico(planificacion),
-        "ingles": obtener_progreso_ingles(planificacion),
-        "pendientes": len(tareas) - completadas,
-        "horas_semana": obtener_horas_registradas_semana(planificacion, obtener_semana_actual()[0]),
-    }
-
-
-def mostrar_inicio(contenido):
-    limpiar_contenido(contenido)
-    datos = obtener_datos_inicio()
-    crear_titulo(contenido, "Inicio", "Tu planificación académica de un vistazo")
-    tarjetas = tk.Frame(contenido, bg="#f7f7f7")
-    tarjetas.pack(fill="x")
-    for c in range(2):
-        tarjetas.columnconfigure(c, weight=1)
-    crear_tarjeta(tarjetas, "Objetivo", datos["fecha"], 0, 0)
-    crear_tarjeta(tarjetas, "Máster", f'{datos["progreso"]:.0f}%', 0, 1)
-    crear_tarjeta(tarjetas, "Inglés", f'{datos["ingles"]:.0f}%', 1, 0)
-    crear_tarjeta(tarjetas, "Horas esta semana", f'{datos["horas_semana"]:g} h', 1, 1)
-
-    aviso = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=20)
-    aviso.pack(fill="x", pady=15)
-    tk.Label(aviso, text="Plan de estudio", font=("Helvetica", 17, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w")
-    tk.Label(aviso, text=("La aplicación ahora puede calcular un plan diario a partir de las horas disponibles de cada día, "
-                          "registrar qué has hecho realmente y mantener separado el contenido obligatorio de los bonus."),
-             font=("Helvetica", 13), justify="left", fg="#333333", bg="#ffffff", wraplength=850).pack(anchor="w", pady=(8, 0))
-
-
-def normalizar_tarea(nombre, fecha_limite, prioridad, categoria, tipo="Tarea"):
-    return {
-        "nombre": nombre.strip(),
-        "fecha_limite": fecha_limite.strip(),
-        "prioridad": prioridad,
-        "categoria": categoria.strip() or "General",
-        "completada": False,
-        "tipo": tipo,
-    }
-
-
-def guardar_nueva_tarea(contenido, entradas):
-    nombre = entradas["nombre"].get().strip()
-    fecha = entradas["fecha"].get().strip()
-    if not nombre:
-        messagebox.showerror("Dato incorrecto", "Escribe el nombre de la tarea.")
-        return
-    if fecha:
-        try:
-            datetime.strptime(fecha, "%d/%m/%Y")
-        except ValueError:
-            messagebox.showerror("Fecha incorrecta", "Usa el formato dd/mm/aaaa.")
-            return
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    tareas.append(normalizar_tarea(nombre, fecha, entradas["prioridad"].get(), entradas["categoria"].get()))
-    guardar_tareas(tareas, ARCHIVO_TAREAS)
-    mostrar_tareas_en_interfaz(contenido)
-
-
-def completar_tarea_interfaz(indice, contenido):
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    if 0 <= indice < len(tareas):
-        tareas[indice]["completada"] = True
-        guardar_tareas(tareas, ARCHIVO_TAREAS)
-        mostrar_tareas_en_interfaz(contenido)
-
-
-def eliminar_tarea_interfaz(indice, contenido):
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    if 0 <= indice < len(tareas):
-        if not messagebox.askyesno("Eliminar tarea", "¿Seguro que quieres eliminar esta tarea?"):
-            return
-        tareas.pop(indice)
-        guardar_tareas(tareas, ARCHIVO_TAREAS)
-        mostrar_tareas_en_interfaz(contenido)
-
-
-def editar_tarea_interfaz(indice, contenido):
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    if not (0 <= indice < len(tareas)):
-        return
-    tarea = tareas[indice]
-    ventana = tk.Toplevel(contenido.winfo_toplevel())
-    ventana.title("Editar tarea")
-    ventana.geometry("520x330")
-    ventana.configure(bg="#f7f7f7")
-    marco = tk.Frame(ventana, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=20)
-    marco.pack(fill="both", expand=True, padx=20, pady=20)
-
-    tk.Label(marco, text="Editar tarea", font=("Helvetica", 18, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w", pady=(0, 15))
-    tk.Label(marco, text="Qué tienes que hacer", fg="#222222", bg="#ffffff").pack(anchor="w")
-    nombre = tk.Entry(marco, width=55, fg="#000000", bg="#ffffff")
-    nombre.insert(0, tarea.get("nombre", ""))
-    nombre.pack(fill="x", pady=(3, 10))
-
-    tk.Label(marco, text="Fecha límite (dd/mm/aaaa)", fg="#222222", bg="#ffffff").pack(anchor="w")
-    fecha = tk.Entry(marco, width=25, fg="#000000", bg="#ffffff")
-    fecha.insert(0, tarea.get("fecha_limite", ""))
-    fecha.pack(anchor="w", pady=(3, 10))
-
-    tk.Label(marco, text="Prioridad", fg="#222222", bg="#ffffff").pack(anchor="w")
-    prioridad = tk.StringVar(value=tarea.get("prioridad", "Media"))
-    tk.OptionMenu(marco, prioridad, "Alta", "Media", "Baja").pack(anchor="w", pady=(3, 10))
-
-    tk.Label(marco, text="Categoría / módulo", fg="#222222", bg="#ffffff").pack(anchor="w")
-    categoria = tk.Entry(marco, width=40, fg="#000000", bg="#ffffff")
-    categoria.insert(0, tarea.get("categoria", "General"))
-    categoria.pack(fill="x", pady=(3, 10))
-
-    def guardar():
-        nuevo_nombre = nombre.get().strip()
-        nueva_fecha = fecha.get().strip()
-        if not nuevo_nombre:
-            messagebox.showerror("Dato incorrecto", "Escribe el nombre de la tarea.", parent=ventana)
-            return
-        if nueva_fecha:
-            try:
-                datetime.strptime(nueva_fecha, "%d/%m/%Y")
-            except ValueError:
-                messagebox.showerror("Fecha incorrecta", "Usa el formato dd/mm/aaaa.", parent=ventana)
-                return
-        tareas[indice].update({
-            "nombre": nuevo_nombre,
-            "fecha_limite": nueva_fecha,
-            "prioridad": prioridad.get(),
-            "categoria": categoria.get().strip() or "General",
-        })
-        guardar_tareas(tareas, ARCHIVO_TAREAS)
-        ventana.destroy()
-        mostrar_tareas_en_interfaz(contenido)
-
-    tk.Button(marco, text="Guardar cambios", fg="#000000", bg="#eeeeee", activeforeground="#000000", command=guardar).pack(anchor="w")
-
-
-def crear_formulario_tarea(contenido, padre):
-    formulario = tk.Frame(padre, bg="#ffffff", relief="solid", borderwidth=1, padx=15, pady=15)
-    formulario.pack(fill="x", pady=(0, 15))
-    tk.Label(formulario, text="Nueva tarea", font=("Helvetica", 16, "bold"), fg="#222222", bg="#ffffff").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
-    tk.Label(formulario, text="Qué tienes que hacer", fg="#222222", bg="#ffffff").grid(row=1, column=0, sticky="w")
-    nombre = tk.Entry(formulario, width=40, fg="#000000", bg="#ffffff")
-    nombre.grid(row=1, column=1, sticky="ew", padx=8, pady=4)
-    tk.Label(formulario, text="Fecha límite (dd/mm/aaaa)", fg="#222222", bg="#ffffff").grid(row=2, column=0, sticky="w")
-    fecha = tk.Entry(formulario, width=20, fg="#000000", bg="#ffffff")
-    fecha.grid(row=2, column=1, sticky="w", padx=8, pady=4)
-    tk.Label(formulario, text="Prioridad", fg="#222222", bg="#ffffff").grid(row=3, column=0, sticky="w")
-    prioridad = tk.StringVar(value="Media")
-    tk.OptionMenu(formulario, prioridad, "Alta", "Media", "Baja").grid(row=3, column=1, sticky="w", padx=8, pady=4)
-    tk.Label(formulario, text="Categoría / módulo", fg="#222222", bg="#ffffff").grid(row=4, column=0, sticky="w")
-    categoria = tk.Entry(formulario, width=30, fg="#000000", bg="#ffffff")
-    categoria.grid(row=4, column=1, sticky="ew", padx=8, pady=4)
-    formulario.columnconfigure(1, weight=1)
-    tk.Label(formulario, text="Ejemplo: 'Terminar tarea de Django' · categoría: 'Django'", font=("Helvetica", 9), fg="#666666", bg="#ffffff").grid(row=5, column=1, sticky="w", padx=8)
-    tk.Button(formulario, text="Añadir tarea", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-              command=lambda: guardar_nueva_tarea(contenido, {"nombre": nombre, "fecha": fecha, "prioridad": prioridad, "categoria": categoria})).grid(row=6, column=1, sticky="w", padx=8, pady=(8, 0))
-
-
-def mostrar_tareas_en_interfaz(contenido):
-    planificacion = preparar_planificacion(cargar_planificacion())
-    generar_tareas_automaticas(planificacion)
-    limpiar_contenido(contenido)
-    crear_titulo(contenido, "Tareas", "Crea, completa, edita y elimina tareas académicas")
-    crear_formulario_tarea(contenido, contenido)
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    if not tareas:
-        tk.Label(contenido, text="No tienes tareas todavía. Añade la primera arriba.", font=("Helvetica", 15), fg="#222222", bg="#f7f7f7").pack(pady=30)
-        return
-
-    prioridad_orden = {"Alta": 0, "Media": 1, "Baja": 2}
-    indices = sorted(range(len(tareas)), key=lambda i: (tareas[i].get("completada", False), prioridad_orden.get(tareas[i].get("prioridad", "Media"), 1)))
-    for indice in indices:
-        tarea = tareas[indice]
-        fila = tk.Frame(contenido, relief="solid", borderwidth=1, padx=12, pady=10, bg="#ffffff")
-        fila.pack(fill="x", pady=4)
-        estado = "✓" if tarea.get("completada", False) else "○"
-        texto = (f"{estado} {tarea.get('nombre', 'Sin nombre')}\n"
-                 f"Fecha: {tarea.get('fecha_limite') or 'Sin fecha'} | "
-                 f"Prioridad: {tarea.get('prioridad', 'Media')} | "
-                 f"Categoría: {tarea.get('categoria', 'General')}")
-        tk.Label(fila, text=texto, font=("Helvetica", 12), justify="left", fg="#222222", bg="#ffffff", anchor="w").pack(side="left", anchor="w", fill="x", expand=True)
-        tk.Button(fila, text="Editar", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-                  command=lambda i=indice: editar_tarea_interfaz(i, contenido)).pack(side="right", padx=4)
-        if not tarea.get("completada", False):
-            tk.Button(fila, text="Completar", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-                      command=lambda i=indice: completar_tarea_interfaz(i, contenido)).pack(side="right", padx=4)
-        tk.Button(fila, text="Eliminar", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-                  command=lambda i=indice: eliminar_tarea_interfaz(i, contenido)).pack(side="right", padx=4)
-
-def registrar_horas_hoy(planificacion, entrada):
-    try:
-        horas = float(entrada.get())
-        if horas < 0:
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Dato incorrecto", "Introduce un número de horas válido.")
-        return
-    planificacion.setdefault("horas_realizadas", {})[date.today().isoformat()] = horas
-    guardar_planificacion_datos(planificacion)
-    messagebox.showinfo("Guardado", f"Se han registrado {horas:g} horas para hoy.")
-
-
-def cambiar_objetivo_semanal(planificacion, entrada):
-    try:
-        horas = float(entrada.get())
-        if horas <= 0:
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Dato incorrecto", "Introduce un número de horas válido.")
-        return
-    planificacion["horas_semanales_objetivo"] = horas
-    guardar_planificacion_datos(planificacion)
-    messagebox.showinfo("Guardado", f"Objetivo semanal actualizado a {horas:g} horas.")
-
-
-def guardar_disponibilidad(planificacion, entradas):
-    disponibilidad = {}
-    for dia, entrada in entradas.items():
-        try:
-            valor = float(entrada.get() or 0)
-            if valor < 0:
-                raise ValueError
-        except ValueError:
-            messagebox.showerror("Dato incorrecto", f"Horas no válidas para {dia}.")
-            return
-        disponibilidad[dia] = valor
-    planificacion["disponibilidad"] = disponibilidad
-    guardar_planificacion_datos(planificacion)
-    messagebox.showinfo("Guardado", f"Disponibilidad guardada: {sum(disponibilidad.values()):g} h/semana.")
-
-
-def recalcular_horas_realizadas(planificacion):
-    """Reconstruye las horas diarias a partir del historial editable."""
-    horas = {}
-    for actividad in planificacion.get("actividades_realizadas", []):
-        fecha = actividad.get("fecha", "")
-        try:
-            valor = float(actividad.get("horas", 0))
-        except (ValueError, TypeError):
-            valor = 0.0
-        if fecha and valor > 0:
-            horas[fecha] = round(horas.get(fecha, 0.0) + valor, 2)
-    planificacion["horas_realizadas"] = horas
-
-
-def registrar_actividad(planificacion, actividad, horas, inicio, fin, modulo, fecha_texto=None):
-    try:
-        horas = float(horas)
-        if horas <= 0:
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Dato incorrecto", "Introduce una duración válida.")
-        return False
-    fecha = date.today().isoformat()
-    if fecha_texto:
-        try:
-            fecha = datetime.strptime(fecha_texto.strip(), "%d/%m/%Y").date().isoformat()
-        except ValueError:
-            messagebox.showerror("Fecha incorrecta", "Usa el formato dd/mm/aaaa.")
+def master_completo(planificacion):
+    for bloque, modulos in CATALOGO.items():
+        if not bloque.startswith("MÁSTER"):
+            continue
+        if any(progreso_modulo(planificacion, bloque, n, d) < 100 for n, d in modulos.items()):
             return False
-    planificacion.setdefault("actividades_realizadas", []).append({
-        "fecha": fecha,
-        "actividad": actividad.strip(),
-        "modulo": modulo.strip(),
-        "horas": horas,
-        "inicio": inicio.strip(),
-        "fin": fin.strip(),
-    })
-    recalcular_horas_realizadas(planificacion)
-    guardar_planificacion_datos(planificacion)
     return True
 
 
-def obtener_horas_del_dia(planificacion, fecha):
-    total = 0.0
-    for actividad in planificacion.get("actividades_realizadas", []):
-        if actividad.get("fecha") == fecha.isoformat():
-            try:
-                total += float(actividad.get("horas", 0))
-            except (ValueError, TypeError):
-                pass
-    if total == 0:
-        try:
-            total = float(planificacion.get("horas_realizadas", {}).get(fecha.isoformat(), 0))
-        except (ValueError, TypeError):
-            total = 0.0
-    return round(total, 2)
+def bonus_desbloqueados(planificacion, bloque):
+    if bloque == "BONUS · FRONTEND":
+        return frontend_completo(planificacion)
+    return master_completo(planificacion)
 
 
-def editar_actividad(planificacion, indice, contenido):
-    actividades = planificacion.get("actividades_realizadas", [])
-    if not (0 <= indice < len(actividades)):
-        return
-    actividad = actividades[indice]
-    ventana = tk.Toplevel(contenido.winfo_toplevel())
-    ventana.title("Editar actividad")
-    ventana.geometry("600x430")
-    ventana.configure(bg="#f7f7f7")
-    marco = tk.Frame(ventana, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=20)
-    marco.pack(fill="both", expand=True, padx=20, pady=20)
-    tk.Label(marco, text="Editar actividad realizada", font=("Helvetica", 18, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w", pady=(0, 15))
-
-    campos = {}
-    definiciones = [
-        ("Qué hiciste", "actividad", actividad.get("actividad", "")),
-        ("Módulo", "modulo", actividad.get("modulo", "")),
-        ("Fecha (dd/mm/aaaa)", "fecha", datetime.strptime(actividad.get("fecha", date.today().isoformat()), "%Y-%m-%d").strftime("%d/%m/%Y")),
-        ("Horas", "horas", str(actividad.get("horas", ""))),
-        ("Desde", "inicio", actividad.get("inicio", "")),
-        ("Hasta", "fin", actividad.get("fin", "")),
+def obtener_pendientes_desbloqueados(planificacion):
+    master, ingles, bonus = obtener_pendientes_por_prioridad(planificacion)
+    bonus = [
+        item for item in bonus
+        if bonus_desbloqueados(planificacion, item["bloque"])
     ]
-    for etiqueta, clave, valor in definiciones:
-        tk.Label(marco, text=etiqueta, fg="#222222", bg="#ffffff").pack(anchor="w", pady=(4, 0))
-        e = tk.Entry(marco, fg="#000000", bg="#ffffff")
-        e.insert(0, valor)
-        e.pack(fill="x", pady=(2, 6))
-        campos[clave] = e
+    return master, ingles, bonus
 
-    def guardar():
+
+def obtener_horas_registradas_dia(planificacion, fecha):
+    try:
+        return max(0.0, float(planificacion.get("horas_realizadas", {}).get(fecha.isoformat(), 0) or 0))
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def obtener_horas_disponibles_semana(planificacion):
+    return sum(max(0.0, float(planificacion.get("disponibilidad", {}).get(d, 0) or 0)) for d in DIAS_SEMANA)
+
+
+def total_clases_ingles(planificacion):
+    progreso = planificacion.get("progreso_tema", {})
+    total = 0
+    for nombre, datos in CATALOGO["INGLÉS"].items():
+        clave = f"INGLÉS|{nombre}"
+        guardado = progreso.get(clave, {})
+        if nombre == "Unidades 1–9" and "clases" not in guardado:
+            hechas = min(
+                30,
+                _entero_no_negativo(planificacion.get("clases_ingles_completadas", 0)),
+            )
+        else:
+            hechas = _entero_no_negativo(guardado.get("clases", 0))
+        total += min(int(datos.get("clases", 0) or 0), hechas)
+    return min(102, total)
+
+
+def establecer_clases_ingles(planificacion, clases):
+    restantes = max(0, min(102, int(clases)))
+    progreso = planificacion.setdefault("progreso_tema", {})
+    for nombre, datos in CATALOGO["INGLÉS"].items():
+        total = int(datos.get("clases", 0) or 0)
+        if not total:
+            continue
+        clave = f"INGLÉS|{nombre}"
+        guardado = progreso.setdefault(clave, {})
+        hechas = min(total, restantes)
+        guardado["clases"] = hechas
+        restantes -= hechas
+    planificacion["clases_ingles_completadas"] = max(
+        0, min(102, int(clases))
+    )
+
+
+def obtener_capacidad_hasta_objetivo(planificacion):
+    fecha_hoy = date.today()
+    objetivo = obtener_fecha_objetivo(planificacion)
+    if objetivo < fecha_hoy:
+        return 0.0
+    capacidad = calcular_horas_hasta_objetivo(planificacion, DIAS_SEMANA)
+    horas_hoy = horas_registradas_por_fecha(planificacion).get(
+        fecha_hoy.isoformat(), 0.0
+    )
+    return max(0.0, capacidad - horas_hoy)
+
+
+def obtener_horas_realizadas_totales(planificacion):
+    total = 0.0
+    for valor in planificacion.get("horas_realizadas", {}).values():
         try:
-            fecha = datetime.strptime(campos["fecha"].get().strip(), "%d/%m/%Y").date().isoformat()
-            horas = float(campos["horas"].get())
-            if horas <= 0 or not campos["actividad"].get().strip():
+            total += max(0.0, float(valor))
+        except (ValueError, TypeError):
+            pass
+    return total
+
+
+def horas_master_restantes(planificacion):
+    total = max(0.0, float(planificacion.get("horas_estimadas", 0) or 0))
+    porcentaje = max(0.0, min(100.0, float(planificacion.get("porcentaje_master", 0) or 0)))
+    return total * (1 - porcentaje / 100)
+
+
+def dias_restantes(planificacion):
+    return max(0, (obtener_fecha_objetivo(planificacion) - date.today()).days)
+
+
+def limpiar(contenido):
+    for widget in contenido.winfo_children():
+        widget.destroy()
+    canvas = getattr(contenido, "_scroll_canvas", None)
+    if canvas is not None:
+        canvas.yview_moveto(0)
+
+
+def titulo(contenido, texto, subtitulo=""):
+    ttk.Label(contenido, text=texto, style="Title.TLabel").pack(anchor="w", pady=(0, 3))
+    if subtitulo:
+        ttk.Label(contenido, text=subtitulo, style="Subtitle.TLabel").pack(anchor="w", pady=(0, 22))
+
+
+def tarjeta(parent, titulo_texto, valor, detalle="", color=TEXT):
+    frame = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=16)
+    frame.pack_propagate(False)
+    tk.Label(frame, text=titulo_texto.upper(), font=("Helvetica", 10, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
+    tk.Label(frame, text=valor, font=("Helvetica", 23, "bold"), fg=color, bg=CARD).pack(anchor="w", pady=(7, 2))
+    if detalle:
+        tk.Label(frame, text=detalle, font=("Helvetica", 10), fg=MUTED, bg=CARD, wraplength=260, justify="left").pack(anchor="w")
+    return frame
+
+
+def boton(parent, texto, comando, principal=False):
+    return tk.Button(
+        parent,
+        text=texto,
+        command=comando,
+        font=("Helvetica", 10, "bold"),
+        fg="#ffffff" if principal else TEXT,
+        bg=ACCENT if principal else "#ffffff",
+        activeforeground="#ffffff" if principal else TEXT,
+        activebackground=ACCENT_DARK if principal else "#f1f5f9",
+        relief="flat",
+        bd=0,
+        padx=12,
+        pady=8,
+        cursor="hand2",
+    )
+
+
+def crear_scroll(parent):
+    exterior = tk.Frame(parent, bg=BG)
+    canvas = tk.Canvas(exterior, bg=BG, highlightthickness=0)
+    barra = ttk.Scrollbar(exterior, orient="vertical", command=canvas.yview)
+    contenido = tk.Frame(canvas, bg=BG, padx=34, pady=30)
+    ventana = canvas.create_window((0, 0), window=contenido, anchor="nw")
+    canvas.configure(yscrollcommand=barra.set)
+
+    def actualizar(_=None):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def ancho(event):
+        canvas.itemconfigure(ventana, width=event.width)
+
+    contenido.bind("<Configure>", actualizar)
+    canvas.bind("<Configure>", ancho)
+    canvas.pack(side="left", fill="both", expand=True)
+    barra.pack(side="right", fill="y")
+
+    def rueda(event):
+        if event.delta:
+            pasos = event.delta if sys.platform == "darwin" else event.delta / 120
+            if pasos:
+                canvas.yview_scroll(-int(pasos), "units")
+
+    canvas.bind_all("<MouseWheel>", rueda)
+    if sys.platform.startswith("linux"):
+        canvas.bind_all("<Button-4>", lambda _event: canvas.yview_scroll(-1, "units"))
+        canvas.bind_all("<Button-5>", lambda _event: canvas.yview_scroll(1, "units"))
+    contenido._scroll_canvas = canvas
+    exterior.pack(fill="both", expand=True)
+    return contenido
+
+
+class ConquerPlanner:
+    def __init__(self):
+        self.ventana = tk.Tk()
+        self.ventana.title("Conquer Planner · Executive Academic Intelligence")
+        self.ventana.geometry("1250x800")
+        self.ventana.minsize(1000, 680)
+        self.ventana.configure(bg=BG)
+        self.planificacion = cargar_planificacion()
+        self.pagina_actual = None
+        self._configurar_estilos()
+        self._construir_shell()
+
+    def _configurar_estilos(self):
+        style = ttk.Style(self.ventana)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+        style.configure("TLabel", background=BG, foreground=TEXT)
+        style.configure("Title.TLabel", background=BG, foreground=TEXT, font=("Helvetica", 28, "bold"))
+        style.configure("Subtitle.TLabel", background=BG, foreground=MUTED, font=("Helvetica", 12))
+        style.configure("TEntry", padding=7)
+        style.configure("TCombobox", padding=6)
+        style.configure("Horizontal.TProgressbar", troughcolor="#e2e8f0", background=ACCENT, bordercolor="#e2e8f0", lightcolor=ACCENT, darkcolor=ACCENT)
+
+    def _construir_shell(self):
+        self.sidebar = tk.Frame(self.ventana, bg=SIDEBAR, width=235)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
+
+        logo = tk.Frame(self.sidebar, bg=SIDEBAR)
+        logo.pack(fill="x", padx=22, pady=(28, 28))
+        tk.Label(logo, text="CONQUER", font=("Helvetica", 18, "bold"), fg="#ffffff", bg=SIDEBAR).pack(anchor="w")
+        tk.Label(logo, text="PLANNER", font=("Helvetica", 11, "bold"), fg="#5eead4", bg=SIDEBAR).pack(anchor="w")
+        tk.Label(logo, text="Executive Academic Intelligence", font=("Helvetica", 8), fg="#94a3b8", bg=SIDEBAR).pack(anchor="w", pady=(5, 0))
+
+        self.nav = tk.Frame(self.sidebar, bg=SIDEBAR)
+        self.nav.pack(fill="x", padx=12)
+        opciones = [
+            ("⌂", "Inicio", self.mostrar_inicio),
+            ("▣", "Plan de hoy", self.mostrar_plan_hoy),
+            ("✓", "Tareas", self.mostrar_tareas),
+            ("▤", "Temario", self.mostrar_temario),
+            ("◷", "Planificación", self.mostrar_planificacion),
+            ("◉", "Progreso", self.mostrar_progreso),
+            ("📅", "Calendario", self.mostrar_calendario),
+            ("⏳", "Pomodoro", self.abrir_pomodoro),
+            ("📊", "Estadísticas", self.mostrar_estadisticas),
+            ("⚙", "Configuración", self.mostrar_configuracion),
+
+        ]
+        for icono, nombre, funcion in opciones:
+            b = tk.Button(self.nav, text=f"  {icono}   {nombre}", command=funcion, anchor="w", font=("Helvetica", 11, "bold"), fg="#cbd5e1", bg=SIDEBAR, activeforeground="#ffffff", activebackground="#1e293b", relief="flat", bd=0, padx=8, pady=10, cursor="hand2")
+            b.pack(fill="x", pady=2)
+
+        objetivo = obtener_fecha_objetivo(self.planificacion)
+        pie = tk.Frame(self.sidebar, bg="#111c31", padx=15, pady=14)
+        pie.pack(side="bottom", fill="x", padx=12, pady=15)
+        tk.Label(pie, text="OBJETIVO", font=("Helvetica", 8, "bold"), fg="#94a3b8", bg="#111c31").pack(anchor="w")
+        tk.Label(pie, text=objetivo.strftime("%d/%m/%Y"), font=("Helvetica", 13, "bold"), fg="#ffffff", bg="#111c31").pack(anchor="w", pady=(3, 0))
+        tk.Label(pie, text=f"{dias_restantes(self.planificacion)} días restantes", font=("Helvetica", 9), fg="#5eead4", bg="#111c31").pack(anchor="w", pady=(2, 0))
+
+        self.main = tk.Frame(self.ventana, bg=BG)
+        self.main.pack(side="right", fill="both", expand=True)
+        self.contenido = crear_scroll(self.main)
+        self.mostrar_inicio()
+
+    def refrescar(self, funcion=None):
+        self.planificacion = cargar_planificacion()
+        if funcion:
+            funcion()
+
+    def guardar(self):
+        if not guardar_planificacion(self.planificacion):
+            messagebox.showerror("Error", "No se han podido guardar los cambios.")
+            return False
+        return True
+
+    def mostrar_inicio(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        titulo(self.contenido, "Inicio", "Tu progreso real, la carga pendiente y el ritmo para llegar al objetivo.")
+
+        grid = tk.Frame(self.contenido, bg=BG)
+        grid.pack(fill="x")
+        for col in range(4):
+            grid.columnconfigure(col, weight=1)
+        objetivo = obtener_fecha_objetivo(self.planificacion)
+        cards = [
+            ("Objetivo", objetivo.strftime("%d/%m/%Y"), f"{dias_restantes(self.planificacion)} días restantes", TEXT),
+            ("Máster", f"{float(self.planificacion.get('porcentaje_master', 36)):.0f}%", "Progreso global editable", ACCENT),
+            ("Inglés", f"{self.planificacion.get('porcentaje_ingles', 40):.0f}%", f"{self.planificacion.get('clases_ingles_completadas', 41)}/102 clases", ACCENT),
+            ("Capacidad", f"{obtener_capacidad_hasta_objetivo(self.planificacion):.0f} h", "Horas disponibles hasta el objetivo", TEXT),
+        ]
+        for i, (a, b, c, color) in enumerate(cards):
+            frame = tarjeta(grid, a, b, c, color)
+            frame.grid(row=0, column=i, padx=(0 if i == 0 else 6, 0), sticky="nsew")
+            frame.configure(height=120)
+
+        master_restante = horas_master_restantes(self.planificacion)
+        capacidad = obtener_capacidad_hasta_objetivo(self.planificacion)
+        margen = capacidad - master_restante
+        semanas = max(1, (dias_restantes(self.planificacion) + 6) // 7)
+        ritmo_necesario = master_restante / semanas
+        ritmo_disponible = obtener_horas_disponibles_semana(self.planificacion)
+        color = SUCCESS if margen >= 20 else WARNING if margen >= 0 else DANGER
+        diagnostico = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=22, pady=20)
+        diagnostico.pack(fill="x", pady=18)
+        tk.Label(diagnostico, text="DIAGNÓSTICO DE VIABILIDAD", font=("Helvetica", 10, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(diagnostico, text=("Ritmo viable" if margen >= 20 else "Margen estrecho" if margen >= 0 else "Riesgo de retraso"), font=("Helvetica", 23, "bold"), fg=color, bg=CARD).pack(anchor="w", pady=(5, 2))
+        tk.Label(diagnostico, text=f"Máster pendiente estimado: {master_restante:.1f} h · Capacidad restante: {capacidad:.1f} h · Margen: {margen:+.1f} h", font=("Helvetica", 12), fg=TEXT, bg=CARD).pack(anchor="w")
+        tk.Label(
+            diagnostico,
+            text=(
+                f"Ritmo mínimo: {ritmo_necesario:.1f} h/semana de máster · "
+                f"Disponibilidad configurada: {ritmo_disponible:.1f} h/semana · "
+                f"Quedan {semanas} semanas."
+            ),
+            font=("Helvetica", 10),
+            fg=MUTED,
+            bg=CARD,
+        ).pack(anchor="w", pady=(6, 0))
+
+        tk.Label(self.contenido, text="Siguiente acción", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(5, 10))
+        self._mostrar_recomendacion(self.contenido)
+
+        carga = calcular_carga_pendiente(CATALOGO, self.planificacion)
+        tk.Label(
+            self.contenido,
+            text="Carga académica pendiente",
+            font=("Helvetica", 18, "bold"),
+            fg=TEXT,
+            bg=BG,
+        ).pack(anchor="w", pady=(22, 8))
+        resumen_carga = " · ".join(
+            f"{categoria}: {horas:.0f} h estimadas"
+            for categoria, horas in carga.items()
+        )
+        tk.Label(
+            self.contenido,
+            text=(
+                resumen_carga
+                or "No quedan unidades pendientes en el temario."
+            ),
+            font=("Helvetica", 11),
+            fg=MUTED,
+            bg=BG,
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w")
+
+    def _mostrar_recomendacion(self, parent):
+        master, ingles, bonus = obtener_pendientes_desbloqueados(self.planificacion)
+        if master:
+            item = master[0]
+            titulo_accion = f"Máster · {item['nombre']}"
+            detalle = item["pendiente"]
+            nivel = "PRIORIDAD 1"
+        elif ingles:
+            item = ingles[0]
+            titulo_accion = f"Inglés · {item['nombre']}"
+            detalle = item["pendiente"]
+            nivel = "PRIORIDAD 2"
+        elif bonus:
+            item = bonus[0]
+            titulo_accion = f"Bonus · {item['nombre']}"
+            detalle = item["pendiente"]
+            nivel = "PRIORIDAD 3"
+        else:
+            titulo_accion = "Repaso / TFM"
+            detalle = "No quedan contenidos desbloqueados pendientes en el catálogo."
+            nivel = "MANTENIMIENTO"
+        frame = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=20, pady=18)
+        frame.pack(fill="x")
+        tk.Label(frame, text=nivel, font=("Helvetica", 9, "bold"), fg=ACCENT_DARK, bg=SOFT_TEAL, padx=8, pady=4).pack(anchor="w")
+        tk.Label(frame, text=titulo_accion, font=("Helvetica", 17, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(10, 2))
+        tk.Label(frame, text=detalle, font=("Helvetica", 12), fg=MUTED, bg=CARD).pack(anchor="w")
+
+    def mostrar_plan_hoy(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        hoy = date.today()
+        dia = DIAS_SEMANA[hoy.weekday()]
+        horas = max(0.0, float(self.planificacion.get("disponibilidad", {}).get(dia, 0) or 0))
+        hechas = obtener_horas_registradas_dia(self.planificacion, hoy)
+        restantes = max(0.0, horas - hechas)
+        plan = generar_planificacion(CATALOGO, self.planificacion, hoy)
+        asignaciones = plan.get(hoy.isoformat(), [])
+        titulo(self.contenido, "Plan de hoy", f"{dia} {hoy.strftime('%d/%m/%Y')} · el plan se genera con tus datos actuales")
+
+        resumen = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=22, pady=20)
+        resumen.pack(fill="x", pady=(0, 16))
+        tk.Label(resumen, text=f"{restantes:.1f} h", font=("Helvetica", 32, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w")
+        tk.Label(resumen, text=f"de {horas:.1f} h disponibles hoy · {hechas:.1f} h ya registradas", font=("Helvetica", 11), fg=MUTED, bg=CARD).pack(anchor="w")
+
+        tk.Label(
+            self.contenido,
+            text="Agenda de hoy",
+            font=("Helvetica", 18, "bold"),
+            fg=TEXT,
+            bg=BG,
+        ).pack(anchor="w", pady=(8, 8))
+        if asignaciones:
+            for numero, asignacion in enumerate(asignaciones, start=1):
+                if asignacion["modulo"] == "Google Antigravity":
+                    color = ACCENT_DARK
+                elif asignacion["categoria"] == "Máster":
+                    color = ACCENT
+                elif asignacion["categoria"] == "Inglés":
+                    color = "#2563eb"
+                else:
+                    color = WARNING
+                self._fila_plan(
+                    self.contenido,
+                    str(numero),
+                    asignacion["categoria"],
+                    asignacion["modulo"],
+                    " · ".join(asignacion["detalles"]),
+                    asignacion["horas"],
+                    color,
+                )
+        elif obtener_fecha_objetivo(self.planificacion) < hoy:
+            tk.Label(
+                self.contenido,
+                text="La fecha objetivo ya ha pasado. Actualízala en Configuración para generar una nueva planificación.",
+                font=("Helvetica", 11),
+                fg=DANGER,
+                bg=BG,
+                wraplength=850,
+                justify="left",
+            ).pack(anchor="w", pady=8)
+        elif restantes < 1:
+            tk.Label(
+                self.contenido,
+                text="Ya has utilizado las horas disponibles de hoy.",
+                font=("Helvetica", 11),
+                fg=MUTED,
+                bg=BG,
+            ).pack(anchor="w", pady=8)
+        else:
+            tk.Label(
+                self.contenido,
+                text="No queda trabajo pendiente en el temario desbloqueado. Puedes registrar repaso, tutorías o trabajo del TFM.",
+                font=("Helvetica", 11),
+                fg=MUTED,
+                bg=BG,
+                wraplength=850,
+                justify="left",
+            ).pack(anchor="w", pady=8)
+
+        tk.Label(self.contenido, text="Cómo se prioriza", font=("Helvetica", 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
+        tk.Label(
+            self.contenido,
+            text="El máster ocupa primero la disponibilidad. Mientras haya máster pendiente, se reserva también una actividad de inglés al día cuando cabe. Google Antigravity mantiene su sesión semanal del miércoles. Los bonus se programan después del contenido obligatorio y solo al desbloquearse.",
+            font=("Helvetica", 11),
+            fg=MUTED,
+            bg=BG,
+            wraplength=850,
+            justify="left",
+        ).pack(anchor="w")
+
+    def _fila_plan(self, parent, numero, categoria, nombre, detalle, horas, color):
+        frame = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=16, pady=14)
+        frame.pack(fill="x", pady=5)
+        tk.Label(frame, text=numero, font=("Helvetica", 12, "bold"), fg="#ffffff", bg=color, width=3, pady=4).pack(side="left", padx=(0, 14))
+        centro = tk.Frame(frame, bg=CARD)
+        centro.pack(side="left", fill="x", expand=True)
+        tk.Label(centro, text=categoria.upper(), font=("Helvetica", 9, "bold"), fg=color, bg=CARD).pack(anchor="w")
+        tk.Label(centro, text=nombre, font=("Helvetica", 14, "bold"), fg=TEXT, bg=CARD).pack(anchor="w")
+        tk.Label(centro, text=detalle, font=("Helvetica", 10), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(frame, text=f"{horas:.1f} h", font=("Helvetica", 16, "bold"), fg=TEXT, bg=CARD).pack(side="right")
+
+    def mostrar_tareas(self):
+        limpiar(self.contenido)
+        titulo(self.contenido, "Tareas", "Solo tareas manuales. El plan diario se genera desde el temario para evitar duplicados.")
+        tareas_originales = cargar_tareas(ARCHIVO_TAREAS)
+        tareas = self._limpiar_duplicados_tareas(tareas_originales)
+        if tareas != tareas_originales and not self._guardar_tareas(tareas):
+            return
+
+        form = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=18)
+        form.pack(fill="x", pady=(0, 16))
+        tk.Label(form, text="Nueva tarea personal", font=("Helvetica", 16, "bold"), fg=TEXT, bg=CARD).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 12))
+        nombre = ttk.Entry(form)
+        nombre.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(0, 8))
+        nombre.insert(0, "")
+        categoria = ttk.Entry(form)
+        categoria.grid(row=1, column=2, sticky="ew", padx=8)
+        categoria.insert(0, "General")
+        prioridad = ttk.Combobox(form, values=("Alta", "Media", "Baja"), state="readonly", width=10)
+        prioridad.set("Media")
+        prioridad.grid(row=1, column=3, padx=(8, 0))
+        tk.Label(form, text="Tarea", font=("Helvetica", 9), fg=MUTED, bg=CARD).grid(row=2, column=0, sticky="w", pady=(4, 0))
+        tk.Label(form, text="Categoría", font=("Helvetica", 9), fg=MUTED, bg=CARD).grid(row=2, column=2, sticky="w", padx=8, pady=(4, 0))
+        boton(form, "Añadir", lambda: self._crear_tarea(nombre, categoria, prioridad), True).grid(row=1, column=4, padx=(12, 0))
+        for c in range(3):
+            form.columnconfigure(c, weight=1)
+
+        pendientes = [t for t in tareas if not t.get("completada")]
+        completadas = [t for t in tareas if t.get("completada")]
+        tk.Label(self.contenido, text=f"Pendientes ({len(pendientes)})", font=("Helvetica", 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(4, 8))
+        for i, tarea in enumerate(pendientes):
+            self._fila_tarea(tarea, tareas.index(tarea))
+        if completadas:
+            tk.Label(self.contenido, text=f"Completadas ({len(completadas)})", font=("Helvetica", 17, "bold"), fg=MUTED, bg=BG).pack(anchor="w", pady=(22, 8))
+            for tarea in completadas:
+                self._fila_tarea(tarea, tareas.index(tarea))
+
+    def _limpiar_duplicados_tareas(self, tareas):
+        resultado = []
+        vistos = set()
+        for tarea in tareas:
+            clave = (
+                tarea.get("nombre", "").strip().casefold(),
+                tarea.get("categoria", "General").strip().casefold(),
+            )
+            if not clave[0] or clave in vistos:
+                continue
+            vistos.add(clave)
+            resultado.append(tarea)
+        return resultado
+
+    def _crear_tarea(self, nombre, categoria, prioridad):
+        texto = nombre.get().strip()
+        if not texto:
+            messagebox.showerror("Tarea", "Escribe una tarea.")
+            return
+        tareas = cargar_tareas(ARCHIVO_TAREAS)
+        tareas = self._limpiar_duplicados_tareas(tareas)
+        categoria_texto = categoria.get().strip() or "General"
+        clave_nueva = (texto.casefold(), categoria_texto.casefold())
+        if any(
+            (
+                tarea.get("nombre", "").casefold(),
+                tarea.get("categoria", "General").casefold(),
+            ) == clave_nueva
+            for tarea in tareas
+        ):
+            messagebox.showwarning(
+                "Tarea", "Ya existe una tarea con ese nombre y categoría."
+            )
+            return
+        tareas.append({"nombre": texto, "fecha_limite": "", "prioridad": prioridad.get(), "categoria": categoria_texto, "completada": False, "tipo": "Manual"})
+        if not self._guardar_tareas(tareas):
+            return
+        self.mostrar_tareas()
+
+    def _guardar_tareas(self, tareas):
+        if not guardar_tareas(tareas, ARCHIVO_TAREAS):
+            messagebox.showerror(
+                "Error", "No se han podido guardar las tareas.", parent=self.ventana
+            )
+            return False
+        return True
+
+    def _fila_tarea(self, tarea, indice):
+        frame = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=14, pady=11)
+        frame.pack(fill="x", pady=3)
+        estado = "✓" if tarea.get("completada") else "○"
+        color = SUCCESS if tarea.get("completada") else TEXT
+        centro = tk.Frame(frame, bg=CARD)
+        centro.pack(side="left", fill="x", expand=True)
+        tk.Label(centro, text=f"{estado}  {tarea.get('nombre', '')}", font=("Helvetica", 12, "bold"), fg=color, bg=CARD, anchor="w").pack(anchor="w")
+        tk.Label(centro, text=f"{tarea.get('categoria', 'General')} · prioridad {tarea.get('prioridad', 'Media')}", font=("Helvetica", 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 0))
+        if not tarea.get("completada"):
+            boton(frame, "Completar", lambda i=indice: self._completar_tarea(i), True).pack(side="right", padx=3)
+        boton(frame, "Editar", lambda i=indice: self._editar_tarea(i)).pack(side="right", padx=3)
+        boton(frame, "Eliminar", lambda i=indice: self._eliminar_tarea(i)).pack(side="right", padx=3)
+
+    def _completar_tarea(self, indice):
+        tareas = cargar_tareas(ARCHIVO_TAREAS)
+        if 0 <= indice < len(tareas):
+            tareas[indice]["completada"] = True
+            if not self._guardar_tareas(tareas):
+                return
+        self.mostrar_tareas()
+
+    def _eliminar_tarea(self, indice):
+        tareas = cargar_tareas(ARCHIVO_TAREAS)
+        if not (0 <= indice < len(tareas)):
+            return
+        if messagebox.askyesno("Eliminar", f"¿Eliminar «{tareas[indice].get('nombre', '')}»?"):
+            tareas.pop(indice)
+            if not self._guardar_tareas(tareas):
+                return
+            self.mostrar_tareas()
+
+    def _editar_tarea(self, indice):
+        tareas = cargar_tareas(ARCHIVO_TAREAS)
+        if not (0 <= indice < len(tareas)):
+            return
+        tarea = tareas[indice]
+        ventana = tk.Toplevel(self.ventana)
+        ventana.title("Editar tarea")
+        ventana.geometry("520x300")
+        ventana.configure(bg=BG)
+        marco = tk.Frame(ventana, bg=CARD, padx=22, pady=22, highlightbackground=BORDER, highlightthickness=1)
+        marco.pack(fill="both", expand=True, padx=18, pady=18)
+        tk.Label(marco, text="Editar tarea", font=("Helvetica", 18, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(0, 14))
+        nombre = ttk.Entry(marco)
+        nombre.insert(0, tarea.get("nombre", ""))
+        nombre.pack(fill="x", pady=4)
+        categoria = ttk.Entry(marco)
+        categoria.insert(0, tarea.get("categoria", "General"))
+        categoria.pack(fill="x", pady=4)
+        prioridad = ttk.Combobox(marco, values=("Alta", "Media", "Baja"), state="readonly")
+        prioridad.set(tarea.get("prioridad", "Media"))
+        prioridad.pack(anchor="w", pady=4)
+
+        def guardar():
+            tarea.update({"nombre": nombre.get().strip(), "categoria": categoria.get().strip() or "General", "prioridad": prioridad.get()})
+            if not tarea["nombre"]:
+                messagebox.showerror("Tarea", "El nombre no puede estar vacío.", parent=ventana)
+                return
+            if not self._guardar_tareas(tareas):
+                return
+            ventana.destroy()
+            self.mostrar_tareas()
+
+        boton(marco, "Guardar cambios", guardar, True).pack(anchor="w", pady=(12, 0))
+
+    def mostrar_temario(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        titulo(self.contenido, "Temario", "Marca aquí lo que realmente has terminado. Los porcentajes se actualizan solos.")
+
+        clases_ingles = self.planificacion["clases_ingles_completadas"]
+        clases_antigravity = _entero_no_negativo(
+            self.planificacion["progreso_tema"]
+            .get("MÁSTER · PREWORK|Google Antigravity", {})
+            .get("clases", 0)
+        )
+        apuntes_antigravity = self.planificacion["detalle_modulo"]["Google Antigravity"]["apuntes"]
+        detalle_html = self.planificacion["detalle_modulo"]["HTML"]
+        aviso = tk.Frame(self.contenido, bg=SOFT_TEAL, highlightbackground="#99f6e4", highlightthickness=1, padx=18, pady=14)
+        aviso.pack(fill="x", pady=(0, 18))
+        tk.Label(aviso, text="ESTADO ACTUAL", font=("Helvetica", 9, "bold"), fg=ACCENT_DARK, bg=SOFT_TEAL).pack(anchor="w")
+        unidad_12 = "Unidad 12 completada" if clases_ingles >= 41 else "Unidad 12 pendiente"
+        tk.Label(
+            aviso,
+            text=(
+                f"Inglés: {clases_ingles}/102 · {unidad_12} · "
+                f"Google Antigravity: {clases_antigravity}/10 clases, "
+                f"{apuntes_antigravity}/10 apuntes · "
+                f"HTML: tema 1 {detalle_html['tema_1']}/7, "
+                f"tema 2 {detalle_html['tema_2']}/6."
+            ),
+            font=("Helvetica", 11, "bold"),
+            fg=TEXT,
+            bg=SOFT_TEAL,
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+
+        for bloque, modulos in CATALOGO.items():
+            cab = tk.Frame(self.contenido, bg=SIDEBAR, padx=15, pady=9)
+            cab.pack(fill="x", pady=(12, 5))
+            tk.Label(cab, text=bloque, font=("Helvetica", 13, "bold"), fg="#ffffff", bg=SIDEBAR).pack(anchor="w")
+            for nombre, datos in modulos.items():
+                self._fila_modulo(bloque, nombre, datos)
+
+    def _fila_modulo(self, bloque, nombre, datos):
+        clave = f"{bloque}|{nombre}"
+        guardado = self.planificacion.get("progreso_tema", {}).get(clave, {})
+        frame = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=14, pady=12)
+        frame.pack(fill="x", pady=3)
+        progreso = progreso_modulo(self.planificacion, bloque, nombre, datos)
+        estado = estado_modulo(self.planificacion, bloque, nombre, datos)
+        color = SUCCESS if estado == "Completado" else ACCENT if estado == "En curso" else MUTED
+        top = tk.Frame(frame, bg=CARD)
+        top.pack(fill="x")
+        tk.Label(top, text=nombre, font=("Helvetica", 12, "bold"), fg=TEXT, bg=CARD).pack(side="left")
+        tk.Label(top, text=f"{estado} · {progreso:.0f}%", font=("Helvetica", 9, "bold"), fg=color, bg=CARD).pack(side="right")
+        tk.Label(frame, text=f"{datos.get('clases', 0)} clases · {datos.get('tareas', 0)} tareas · {datos.get('evaluaciones', 0)} evaluaciones", font=("Helvetica", 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 7))
+        if nombre == "Google Antigravity":
+            apuntes = self.planificacion["detalle_modulo"]["Google Antigravity"]["apuntes"]
+            clases = _entero_no_negativo(guardado.get("clases", 0))
+            estado_apuntes = "apuntes pendientes" if apuntes < 10 else "apuntes completados"
+            tk.Label(
+                frame,
+                text=f"Clases: {clases}/10 · apuntes: {apuntes}/10 · {estado_apuntes}",
+                font=("Helvetica", 9, "bold"),
+                fg=WARNING if apuntes < 10 or clases < 10 else SUCCESS,
+                bg=CARD,
+            ).pack(anchor="w", pady=(0, 7))
+        if nombre == "HTML":
+            detalle = self.planificacion["detalle_modulo"]["HTML"]
+            tk.Label(frame, text=f"Tema 1: {detalle.get('tema_1', 7)}/7 · Tema 2: {detalle.get('tema_2', 0)}/6", font=("Helvetica", 9, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w", pady=(0, 7))
+        barra = ttk.Progressbar(frame, style="Horizontal.TProgressbar", maximum=100, value=progreso)
+        barra.pack(fill="x", pady=(0, 10))
+
+        controles = tk.Frame(frame, bg=CARD)
+        controles.pack(fill="x")
+        entradas = {}
+        for campo, etiqueta in (("clases", "Clases hechas"), ("tareas", "Tareas hechas"), ("evaluaciones", "Evaluaciones hechas")):
+            total = int(datos.get(campo, 0) or 0)
+            if not total:
+                continue
+            celda = tk.Frame(controles, bg=CARD)
+            celda.pack(side="left", padx=(0, 16))
+            tk.Label(celda, text=etiqueta, font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+            entrada = ttk.Entry(celda, width=7)
+            entrada.insert(0, str(guardado.get(campo, 0)))
+            entrada.pack()
+            entradas[campo] = entrada
+        if nombre == "HTML":
+            detalle = self.planificacion.setdefault("detalle_modulo", {}).setdefault("HTML", {"tema_1": 7, "tema_2": 0})
+            detalle_frame = tk.Frame(frame, bg=CARD)
+            detalle_frame.pack(fill="x", pady=(8, 0))
+            for campo, etiqueta, maximo in (("tema_1", "Tema 1 / 7", 7), ("tema_2", "Tema 2 / 6", 6)):
+                celda = tk.Frame(detalle_frame, bg=CARD)
+                celda.pack(side="left", padx=(0, 16))
+                tk.Label(celda, text=etiqueta, font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+                entrada = ttk.Entry(celda, width=7)
+                entrada.insert(0, str(detalle.get(campo, 0)))
+                entrada.pack()
+                entradas[campo] = entrada
+        if nombre == "Google Antigravity":
+            detalle = self.planificacion.setdefault("detalle_modulo", {}).setdefault("Google Antigravity", {"apuntes": 6})
+            celda = tk.Frame(frame, bg=CARD)
+            celda.pack(anchor="w", pady=(8, 0))
+            tk.Label(celda, text="Apuntes hechos / 10", font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+            entrada = ttk.Entry(celda, width=7)
+            entrada.insert(0, str(detalle.get("apuntes", 6)))
+            entrada.pack()
+            entradas["apuntes"] = entrada
+        boton(frame, "Guardar progreso", lambda: self._guardar_modulo(clave, entradas, datos)).pack(anchor="e", pady=(8, 0))
+
+    def _guardar_modulo(self, clave, entradas, datos):
+        valores = {}
+        bloque, nombre = clave.split("|", 1)
+        especiales = {"tema_1": 7, "tema_2": 6, "apuntes": 10}
+        for campo, entrada in entradas.items():
+            try:
+                valor = int(entrada.get())
+                total = especiales.get(campo, int(datos.get(campo, 0) or 0))
+                if valor < 0 or valor > total:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Progreso", "Introduce valores enteros dentro del total disponible.")
+                return
+            valores[campo] = valor
+        especiales_guardados = {
+            campo: valor for campo, valor in valores.items() if campo in especiales
+        }
+        valores_normales = {
+            campo: valor for campo, valor in valores.items() if campo not in especiales
+        }
+        if especiales_guardados:
+            detalle = self.planificacion.setdefault("detalle_modulo", {}).setdefault(nombre, {})
+            detalle.update(especiales_guardados)
+        if valores_normales:
+            self.planificacion.setdefault("progreso_tema", {})[clave] = valores_normales
+        if bloque == "INGLÉS":
+            self.planificacion["clases_ingles_completadas"] = total_clases_ingles(
+                self.planificacion
+            )
+        if not self.guardar():
+            self.planificacion = cargar_planificacion()
+            return
+        self.mostrar_temario()
+
+    def mostrar_planificacion(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        titulo(self.contenido, "Planificación", "Capacidad, horas realizadas y previsión hasta tu fecha objetivo.")
+
+        objetivo = obtener_fecha_objetivo(self.planificacion)
+        capacidad = obtener_capacidad_hasta_objetivo(self.planificacion)
+        restante = horas_master_restantes(self.planificacion)
+        margen = capacidad - restante
+        grid = tk.Frame(self.contenido, bg=BG)
+        grid.pack(fill="x")
+        for c in range(3):
+            grid.columnconfigure(c, weight=1)
+        datos = [
+            (
+                "Horas máster restantes",
+                f"{restante:.1f} h",
+                (
+                    f"Basado en {self.planificacion['horas_estimadas']:g} h "
+                    f"y {self.planificacion['porcentaje_master']:g}% completado"
+                ),
+                TEXT,
+            ),
+            ("Capacidad hasta objetivo", f"{capacidad:.1f} h", f"Hasta {objetivo.strftime('%d/%m/%Y')}", ACCENT),
+            ("Margen", f"{margen:+.1f} h", "Capacidad menos máster pendiente", SUCCESS if margen >= 20 else WARNING if margen >= 0 else DANGER),
+        ]
+        for i, item in enumerate(datos):
+            frame = tarjeta(grid, *item)
+            frame.grid(row=0, column=i, padx=(0 if i == 0 else 6, 0), sticky="nsew")
+            frame.configure(height=125)
+
+        ritmo = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=18)
+        ritmo.pack(fill="x", pady=18)
+        semanas = max(1, (dias_restantes(self.planificacion) + 6) // 7)
+        necesario = restante / semanas
+        semanal = obtener_horas_disponibles_semana(self.planificacion)
+        tk.Label(ritmo, text="RITMO NECESARIO", font=("Helvetica", 9, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(ritmo, text=f"{necesario:.1f} h/semana de máster", font=("Helvetica", 21, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(4, 2))
+        tk.Label(ritmo, text=f"Disponibilidad semanal configurada: {semanal:.1f} h · {semanas} semanas aproximadas.", font=("Helvetica", 10), fg=MUTED, bg=CARD).pack(anchor="w")
+
+        carga_proyectada = sum(
+            calcular_carga_pendiente(
+                CATALOGO,
+                self.planificacion,
+                incluir_bonuses_futuros=True,
+            ).values()
+        )
+        calendario_proyectado = generar_planificacion(
+            CATALOGO,
+            self.planificacion,
+        )
+        horas_asignadas = sum(
+            item["horas"]
+            for asignaciones in calendario_proyectado.values()
+            for item in asignaciones
+        )
+        fuera_objetivo = max(0.0, carga_proyectada - horas_asignadas)
+        estado_plan = tk.Frame(
+            self.contenido,
+            bg=SOFT_RED if fuera_objetivo > 0 else SOFT_TEAL,
+            highlightbackground="#fecaca" if fuera_objetivo > 0 else "#99f6e4",
+            highlightthickness=1,
+            padx=16,
+            pady=12,
+        )
+        estado_plan.pack(fill="x", pady=(0, 18))
+        if fuera_objetivo > 0:
+            estado_texto = (
+                f"Con las estimaciones actuales quedarían {fuera_objetivo:.1f} h "
+                "de contenido pendiente sin colocar antes de la fecha objetivo. "
+                "Aumenta disponibilidad, revisa estimaciones o ajusta el objetivo."
+            )
+            estado_color = DANGER
+        else:
+            estado_texto = (
+                f"El calendario puede colocar las {carga_proyectada:.1f} h "
+                f"estimadas de contenido antes del objetivo. "
+                f"Hay {max(0.0, capacidad - horas_asignadas):.1f} h de capacidad libre."
+            )
+            estado_color = ACCENT_DARK
+        tk.Label(
+            estado_plan,
+            text=estado_texto,
+            font=("Helvetica", 10, "bold"),
+            fg=estado_color,
+            bg=estado_plan["bg"],
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w")
+
+        tk.Label(self.contenido, text="Disponibilidad semanal", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(5, 8))
+        disponibilidad = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=16, pady=16)
+        disponibilidad.pack(fill="x")
+        entradas = {}
+        for dia in DIAS_SEMANA:
+            celda = tk.Frame(disponibilidad, bg=CARD)
+            celda.pack(side="left", fill="x", expand=True, padx=3)
+            tk.Label(celda, text=dia[:3], font=("Helvetica", 9, "bold"), fg=MUTED, bg=CARD).pack()
+            entrada = ttk.Entry(celda, width=7, justify="center")
+            entrada.insert(0, str(self.planificacion.get("disponibilidad", {}).get(dia, 0)))
+            entrada.pack(pady=(5, 0))
+            entradas[dia] = entrada
+        boton(disponibilidad, "Guardar disponibilidad", lambda: self._guardar_disponibilidad(entradas), True).pack(anchor="e", pady=(12, 0))
+
+        tk.Label(self.contenido, text="Registro de estudio", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(24, 8))
+        self._registro_estudio()
+
+        tk.Label(self.contenido, text="Plan de la semana", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(24, 8))
+        self._mostrar_plan_semana()
+
+    def _guardar_disponibilidad(self, entradas):
+        datos = {}
+        try:
+            for dia, entrada in entradas.items():
+                valor = float(entrada.get() or 0)
+                if not math.isfinite(valor) or valor < 0:
+                    raise ValueError
+                datos[dia] = valor
+        except ValueError:
+            messagebox.showerror("Disponibilidad", "Las horas deben ser números no negativos.")
+            return
+        self.planificacion["disponibilidad"] = datos
+        self.planificacion["horas_semanales_objetivo"] = round(sum(datos.values()), 1)
+        if not self.guardar():
+            self.planificacion = cargar_planificacion()
+            return
+        self.mostrar_planificacion()
+
+    def _registro_estudio(self):
+        frame = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=16, pady=16)
+        frame.pack(fill="x")
+        campos = {}
+        modulos = [
+            f"{bloque} | {nombre}"
+            for bloque, contenidos in CATALOGO.items()
+            for nombre in contenidos
+        ]
+        definiciones = [
+            ("Fecha (AAAA-MM-DD)", "fecha", date.today().isoformat(), "entry"),
+            (
+                "Tipo de actividad",
+                "tipo",
+                ("Clase", "Apuntes", "Clase + apuntes", "Tarea", "Evaluación", "Tutoría", "Clase en directo", "Práctica", "TFM"),
+                "tipo",
+            ),
+            ("Módulo del temario", "modulo", modulos, "modulo"),
+            ("Qué has hecho", "actividad", "", "entry"),
+            ("Horas reales", "horas", "1", "entry"),
+            ("Inicio (opcional)", "inicio", "", "entry"),
+            ("Fin (opcional)", "fin", "", "entry"),
+        ]
+        for i, (etiqueta, clave, valor, tipo_campo) in enumerate(definiciones):
+            celda = tk.Frame(frame, bg=CARD)
+            celda.grid(row=0, column=i, padx=4, sticky="ew")
+            frame.columnconfigure(i, weight=1)
+            tk.Label(celda, text=etiqueta, font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+            if tipo_campo in ("tipo", "modulo"):
+                entrada = ttk.Combobox(
+                    celda,
+                    values=valor,
+                    state="readonly" if tipo_campo == "tipo" else "normal",
+                )
+                if tipo_campo == "tipo":
+                    entrada.set("Clase")
+            else:
+                entrada = ttk.Entry(celda)
+                entrada.insert(0, valor)
+            entrada.pack(fill="x", pady=(3, 0))
+            campos[clave] = entrada
+        campos["modulo"].set("MÁSTER · FRONTEND | HTML")
+        campos["tipo"].bind(
+            "<<ComboboxSelected>>",
+            lambda _evento: self._actualizar_estimacion_sesion(campos),
+        )
+        self._actualizar_estimacion_sesion(campos)
+        boton(frame, "Registrar sesión y actualizar progreso", lambda: self._guardar_sesion(campos), True).grid(row=1, column=0, columnspan=len(definiciones), sticky="e", pady=(12, 0))
+
+        actividades = self.planificacion.get("actividades_realizadas", [])
+        if actividades:
+            for i in reversed(range(max(0, len(actividades) - 10), len(actividades))):
+                actividad = actividades[i]
+                fila = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=12, pady=9)
+                fila.pack(fill="x", pady=3)
+                texto = (
+                    f"{actividad.get('fecha', '')} · "
+                    f"{actividad.get('horas', 0)} h · "
+                    f"{actividad.get('tipo', 'Estudio')} · "
+                    f"{actividad.get('actividad', '')} · "
+                    f"{actividad.get('modulo', '')}"
+                )
+                tk.Label(fila, text=texto, font=("Helvetica", 10), fg=TEXT, bg=CARD, anchor="w").pack(side="left", fill="x", expand=True)
+                boton(fila, "Eliminar", lambda i=i: self._eliminar_sesion(i)).pack(side="right")
+
+    def _actualizar_estimacion_sesion(self, campos):
+        claves = {
+            "Clase": "clase",
+            "Apuntes": "apuntes",
+            "Clase + apuntes": "clase_apuntes",
+            "Tarea": "tarea",
+            "Evaluación": "evaluacion",
+            "Tutoría": "tutoria",
+            "Clase en directo": "clase_directo",
+            "Práctica": "practica",
+            "TFM": "tfm",
+        }
+        tipo = campos["tipo"].get()
+        horas = self.planificacion.get("estimaciones", {}).get(
+            claves.get(tipo, "clase"),
+            1.0,
+        )
+        campos["horas"].delete(0, tk.END)
+        campos["horas"].insert(0, str(horas))
+
+    def _guardar_sesion(self, campos):
+        try:
+            fecha = datetime.strptime(campos["fecha"].get().strip(), "%Y-%m-%d").date()
+            horas = float(campos["horas"].get().strip())
+            if not math.isfinite(horas) or horas <= 0:
                 raise ValueError
         except ValueError:
-            messagebox.showerror("Dato incorrecto", "Revisa la actividad, la fecha y las horas.", parent=ventana)
+            messagebox.showerror("Registro", "Usa fecha AAAA-MM-DD y horas mayores que 0.")
             return
-        actividades[indice] = {
-            "fecha": fecha,
-            "actividad": campos["actividad"].get().strip(),
-            "modulo": campos["modulo"].get().strip(),
+        actividad = campos["actividad"].get().strip()
+        modulo_seleccionado = campos["modulo"].get().strip()
+        if not actividad:
+            messagebox.showerror("Registro", "Escribe qué has hecho.")
+            return
+        bloque, separador, modulo = modulo_seleccionado.partition(" | ")
+        if not separador:
+            bloque, modulo = "", modulo_seleccionado
+        tipo = campos["tipo"].get()
+        registro = {
+            "fecha": fecha.isoformat(),
+            "actividad": actividad,
+            "tipo": tipo,
+            "bloque": bloque,
+            "modulo": modulo,
             "horas": horas,
             "inicio": campos["inicio"].get().strip(),
             "fin": campos["fin"].get().strip(),
         }
-        recalcular_horas_realizadas(planificacion)
-        guardar_planificacion_datos(planificacion)
-        ventana.destroy()
-        mostrar_planificacion(contenido)
+        progreso_anterior = self._aplicar_progreso_sesion(registro)
+        if progreso_anterior:
+            registro["progreso_aplicado"] = progreso_anterior
+        self.planificacion.setdefault("actividades_realizadas", []).append(registro)
+        horas_dia = self.planificacion.setdefault("horas_realizadas", {})
+        horas_dia[fecha.isoformat()] = round(float(horas_dia.get(fecha.isoformat(), 0) or 0) + horas, 2)
+        if not self.guardar():
+            self.planificacion = cargar_planificacion()
+            return
+        self.mostrar_planificacion()
 
-    tk.Button(marco, text="Guardar cambios", fg="#000000", bg="#eeeeee", activeforeground="#000000", command=guardar).pack(anchor="w", pady=(8, 0))
+    def _aplicar_progreso_sesion(self, sesion):
+        bloque = sesion["bloque"]
+        modulo = sesion["modulo"]
+        tipo = sesion["tipo"]
+        datos = CATALOGO.get(bloque, {}).get(modulo)
+        if not datos:
+            return {}
 
+        clave = f"{bloque}|{modulo}"
+        progreso = self.planificacion.setdefault("progreso_tema", {}).setdefault(clave, {})
+        detalle = self.planificacion.setdefault("detalle_modulo", {}).setdefault(modulo, {})
+        cambios = {}
 
-def eliminar_actividad(planificacion, indice, contenido):
-    actividades = planificacion.get("actividades_realizadas", [])
-    if not (0 <= indice < len(actividades)):
-        return
-    if not messagebox.askyesno("Eliminar actividad", "¿Quieres eliminar este registro?", parent=contenido.winfo_toplevel()):
-        return
-    actividades.pop(indice)
-    recalcular_horas_realizadas(planificacion)
-    guardar_planificacion_datos(planificacion)
-    mostrar_planificacion(contenido)
+        if tipo in (
+            "Clase",
+            "Clase + apuntes",
+            "Clase en directo",
+        ) and int(datos.get("clases", 0) or 0):
+            anterior = min(
+                int(datos["clases"]),
+                _entero_no_negativo(
+                    progreso.get(
+                        "clases",
+                        self.planificacion.get("clases_ingles_completadas", 0)
+                        if bloque == "INGLÉS" and modulo == "Unidades 1–9"
+                        else 0,
+                    )
+                ),
+            )
+            if anterior < int(datos["clases"]):
+                progreso["clases"] = anterior + 1
+                cambios["clases"] = anterior
+                if bloque == "MÁSTER · FRONTEND" and modulo == "HTML":
+                    for campo, total in (("tema_1", 7), ("tema_2", 6)):
+                        hechas = min(
+                            total,
+                            _entero_no_negativo(detalle.get(campo, 0)),
+                        )
+                        if hechas < total:
+                            detalle[campo] = hechas + 1
+                            cambios[campo] = hechas
+                            break
 
+        if tipo in ("Tarea", "TFM") and int(datos.get("tareas", 0) or 0):
+            anterior = min(
+                int(datos["tareas"]),
+                _entero_no_negativo(progreso.get("tareas", 0)),
+            )
+            if anterior < int(datos["tareas"]):
+                progreso["tareas"] = anterior + 1
+                cambios["tareas"] = anterior
 
-def crear_registro_actividad(contenido, planificacion):
-    marco = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=15, pady=15)
-    marco.pack(fill="x", pady=(15, 10))
-    tk.Label(marco, text="Registrar qué has hecho", font=("Helvetica", 17, "bold"), fg="#222222", bg="#ffffff").grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
-    etiquetas = [("Actividad", 1, 0), ("Módulo", 1, 2), ("Horas", 2, 0), ("Desde", 2, 2), ("Hasta", 3, 2), ("Fecha", 3, 0)]
-    for texto, fila, col in etiquetas:
-        tk.Label(marco, text=texto, fg="#222222", bg="#ffffff").grid(row=fila, column=col, sticky="w")
-    actividad = tk.Entry(marco, width=28, fg="#000000", bg="#ffffff")
-    actividad.grid(row=1, column=1, padx=5, pady=4)
-    modulo = tk.Entry(marco, width=24, fg="#000000", bg="#ffffff")
-    modulo.grid(row=1, column=3, padx=5, pady=4)
-    horas = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    horas.grid(row=2, column=1, sticky="w", padx=5, pady=4)
-    inicio = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    inicio.grid(row=2, column=3, sticky="w", padx=5, pady=4)
-    fin = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    fin.grid(row=3, column=3, sticky="w", padx=5, pady=4)
-    fecha = tk.Entry(marco, width=12, fg="#000000", bg="#ffffff")
-    fecha.insert(0, date.today().strftime("%d/%m/%Y"))
-    fecha.grid(row=3, column=1, sticky="w", padx=5, pady=4)
-    tk.Button(marco, text="Guardar actividad", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-              command=lambda: guardar_actividad_y_refrescar(contenido, planificacion, actividad, horas, inicio, fin, modulo, fecha)).grid(row=4, column=1, sticky="w", pady=(8, 0))
+        if tipo == "Evaluación" and int(datos.get("evaluaciones", 0) or 0):
+            anterior = min(
+                int(datos["evaluaciones"]),
+                _entero_no_negativo(progreso.get("evaluaciones", 0)),
+            )
+            if anterior < int(datos["evaluaciones"]):
+                progreso["evaluaciones"] = anterior + 1
+                cambios["evaluaciones"] = anterior
 
+        if tipo in ("Apuntes", "Clase + apuntes") and modulo == "Google Antigravity":
+            anterior = min(10, _entero_no_negativo(detalle.get("apuntes", 6)))
+            if anterior < 10:
+                detalle["apuntes"] = anterior + 1
+                cambios["apuntes"] = anterior
 
-def guardar_actividad_y_refrescar(contenido, planificacion, actividad, horas, inicio, fin, modulo, fecha):
-    if not actividad.get().strip():
-        messagebox.showerror("Dato incorrecto", "Escribe qué has hecho.")
-        return
-    if registrar_actividad(planificacion, actividad.get(), horas.get(), inicio.get(), fin.get(), modulo.get(), fecha.get()):
-        mostrar_planificacion(contenido)
+        if bloque == "INGLÉS":
+            self.planificacion["clases_ingles_completadas"] = total_clases_ingles(
+                self.planificacion
+            )
+        return {
+            "bloque": bloque,
+            "modulo": modulo,
+            "antes": cambios,
+        } if cambios else {}
 
-
-def mostrar_historial_actividades(contenido, planificacion):
-    actividades = planificacion.get("actividades_realizadas", [])
-    if not actividades:
-        return
-    tk.Label(contenido, text="Historial editable", font=("Helvetica", 18, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(10, 8))
-    for indice in reversed(range(len(actividades))):
-        actividad = actividades[indice]
-        try:
-            fecha = datetime.strptime(actividad.get("fecha", ""), "%Y-%m-%d").strftime("%d/%m/%Y")
-        except ValueError:
-            fecha = actividad.get("fecha", "")
-        fila = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=10, pady=8)
-        fila.pack(fill="x", pady=3)
-        texto = f"{fecha} · {actividad.get('horas', 0):g} h · {actividad.get('actividad', '')} · {actividad.get('modulo', '')}"
-        tk.Label(fila, text=texto, font=("Helvetica", 11), fg="#222222", bg="#ffffff", anchor="w", justify="left", wraplength=650).pack(side="left", fill="x", expand=True)
-        tk.Button(fila, text="Editar", fg="#000000", bg="#eeeeee", activeforeground="#000000", command=lambda i=indice: editar_actividad(planificacion, i, contenido)).pack(side="right", padx=3)
-        tk.Button(fila, text="Eliminar", fg="#000000", bg="#eeeeee", activeforeground="#000000", command=lambda i=indice: eliminar_actividad(planificacion, i, contenido)).pack(side="right", padx=3)
-
-
-def obtener_pendientes_academicos(planificacion):
-    """Obtiene el siguiente trabajo pendiente de cada módulo, sin inventar nombres de clases."""
-    pendientes_master, pendientes_ingles, pendientes_bonus = [], [], []
-    progreso = planificacion.get("progreso_tema", {})
-    for bloque, modulos in TEMARIO.items():
-        destino = pendientes_master if bloque.startswith("MÁSTER") else pendientes_ingles if bloque == "INGLÉS" else pendientes_bonus if bloque.startswith("BONUS") else None
-        if destino is None:
-            continue
-        for nombre, datos in modulos.items():
-            clave = f"{bloque}|{nombre}"
-            hecho = progreso.get(clave, {})
-            total_clases = int(datos.get("clases", 0) or 0)
-            hechas_clases = min(total_clases, int(hecho.get("clases", 0) or 0))
-            total_tareas = int(datos.get("tareas", 0) or 0)
-            hechas_tareas = min(total_tareas, int(hecho.get("tareas", 0) or 0))
-            total_eval = int(datos.get("evaluaciones", 0) or 0)
-            hechas_eval = min(total_eval, int(hecho.get("evaluaciones", 0) or 0))
-            pendientes = []
-            if total_clases > hechas_clases:
-                pendientes.append(f"siguiente clase ({hechas_clases + 1}/{total_clases})")
-            if total_tareas > hechas_tareas:
-                pendientes.append(f"tarea ({hechas_tareas + 1}/{total_tareas})")
-            if total_eval > hechas_eval:
-                pendientes.append(f"evaluación ({hechas_eval + 1}/{total_eval})")
-            if datos.get("estado") and datos.get("estado") != "Completado" and not pendientes:
-                pendientes.append(datos["estado"])
-            if pendientes:
-                destino.append({"nombre": nombre, "bloque": bloque, "pendiente": ", ".join(pendientes), "clases_restantes": total_clases - hechas_clases})
-    if not pendientes_ingles and obtener_progreso_ingles(planificacion) < 100:
-        hechas = int(planificacion.get("clases_ingles_completadas", 30))
-        pendientes_ingles.append({"nombre": "Inglés", "bloque": "INGLÉS", "pendiente": f"continuar desde la clase {hechas + 1}/102", "clases_restantes": max(0, 102 - hechas)})
-    return pendientes_master, pendientes_ingles, pendientes_bonus
-
-
-def sincronizar_tareas_automaticas(planificacion):
-    """Marca como completadas las tareas automáticas cuyo módulo ya no tiene ese pendiente."""
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    master, ingles, bonus = obtener_pendientes_academicos(planificacion)
-    pendientes = {f"{item['bloque']}|{item['nombre']}" for item in master + ingles + bonus}
-    cambio = False
-    for tarea in tareas:
-        clave = tarea.get("id_automatico")
-        if clave and clave not in pendientes and not tarea.get("completada", False):
-            tarea["completada"] = True
-            cambio = True
-    if cambio:
-        guardar_tareas(tareas, ARCHIVO_TAREAS)
-
-
-def generar_tareas_automaticas(planificacion):
-    """Crea una tarea automática solo para el siguiente paso de cada módulo pendiente."""
-    sincronizar_tareas_automaticas(planificacion)
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    existentes = {t.get("id_automatico") for t in tareas if t.get("id_automatico")}
-    master, ingles, bonus = obtener_pendientes_academicos(planificacion)
-    candidatos = master[:1] + ingles[:1] + bonus[:1]
-    creadas = 0
-    for item in candidatos:
-        clave = f"{item['bloque']}|{item['nombre']}"
-        if clave in existentes:
-            continue
-        tareas.append({
-            "nombre": f"{item['nombre']} · {item['pendiente']}",
-            "fecha_limite": "",
-            "prioridad": "Alta" if item in master else "Media",
-            "categoria": item["bloque"],
-            "completada": False,
-            "tipo": "Plan automático",
-            "id_automatico": clave,
-        })
-        creadas += 1
-    if creadas:
-        guardar_tareas(tareas, ARCHIVO_TAREAS)
-    return creadas
-
-
-def calcular_plan_diario(planificacion):
-    """Distribuye las horas disponibles entre trabajo pendiente y descuenta lo ya realizado."""
-    disponibilidad = planificacion.get("disponibilidad", {})
-    master, ingles, bonus = obtener_pendientes_academicos(planificacion)
-    bolsas = [("Máster", master), ("Inglés", ingles), ("Bonus", bonus)]
-    resultado = []
-    hoy = date.today()
-    for i, dia in enumerate(DIAS_SEMANA):
-        try:
-            horas = max(0.0, float(disponibilidad.get(dia, 0) or 0))
-        except (ValueError, TypeError):
-            horas = 0.0
-        fecha_dia = hoy + timedelta(days=(i - hoy.weekday()) % 7)
-        realizadas = obtener_horas_del_dia(planificacion, fecha_dia)
-        disponibles = max(0.0, horas - realizadas) if fecha_dia == hoy else horas
-        if disponibles <= 0:
-            actividad = "Tiempo ya utilizado / descanso"
-        else:
-            elegida = None
-            for etiqueta, lista in bolsas:
-                if lista:
-                    elegida = (etiqueta, lista[0])
-                    break
-            if elegida:
-                etiqueta, item = elegida
-                bloques = max(1, int(round(disponibles)))
-                actividad = f"{etiqueta} · {item['nombre']} · {item['pendiente']} · {bloques} h orientativas"
+    def _revertir_progreso_sesion(self, sesion):
+        aplicado = sesion.get("progreso_aplicado")
+        if not isinstance(aplicado, dict):
+            return
+        clave = f"{aplicado.get('bloque')}|{aplicado.get('modulo')}"
+        progreso = self.planificacion.setdefault("progreso_tema", {}).setdefault(clave, {})
+        detalle = self.planificacion.setdefault("detalle_modulo", {}).setdefault(
+            aplicado.get("modulo"), {}
+        )
+        for campo in aplicado.get("antes", {}):
+            if campo in ("apuntes", "tema_1", "tema_2"):
+                detalle[campo] = max(0, _entero_no_negativo(detalle.get(campo, 0)) - 1)
             else:
-                actividad = "Repaso, apuntes o Proyecto de Fin de Máster"
-        if fecha_dia == hoy:
-            actividad = "HOY → " + actividad
-        resultado.append((dia, actividad, horas))
-    return resultado
+                progreso[campo] = max(
+                    0,
+                    _entero_no_negativo(progreso.get(campo, 0)) - 1,
+                )
+        if aplicado.get("bloque") == "INGLÉS":
+            self.planificacion["clases_ingles_completadas"] = total_clases_ingles(
+                self.planificacion
+            )
 
+    def _eliminar_sesion(self, indice):
+        actividades = self.planificacion.get("actividades_realizadas", [])
+        if not (0 <= indice < len(actividades)):
+            return
+        actividad = actividades.pop(indice)
+        self._revertir_progreso_sesion(actividad)
+        fecha = actividad.get("fecha")
+        try:
+            horas = float(actividad.get("horas", 0) or 0)
+            actuales = float(self.planificacion.get("horas_realizadas", {}).get(fecha, 0) or 0)
+            nuevo = max(0, actuales - horas)
+            if nuevo:
+                self.planificacion["horas_realizadas"][fecha] = round(nuevo, 2)
+            else:
+                self.planificacion["horas_realizadas"].pop(fecha, None)
+        except (ValueError, TypeError):
+            pass
+        if not self.guardar():
+            self.planificacion = cargar_planificacion()
+            return
+        self.mostrar_planificacion()
 
-def mostrar_plan_diario(contenido, planificacion):
-    marco = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=15, pady=15)
-    marco.pack(fill="x", pady=(15, 10))
-    tk.Label(marco, text="Plan diario automático", font=("Helvetica", 18, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w")
-    tk.Label(marco, text="La aplicación reparte tus horas disponibles y descuenta automáticamente el tiempo que ya has registrado.", font=("Helvetica", 12), fg="#555555", bg="#ffffff", wraplength=850, justify="left").pack(anchor="w", pady=(5, 10))
-    for dia, actividad, horas in calcular_plan_diario(planificacion):
-        fila = tk.Frame(marco, bg="#ffffff")
-        fila.pack(fill="x", pady=4)
-        tk.Label(fila, text=dia, width=13, anchor="w", font=("Helvetica", 12, "bold"), fg="#000000", bg="#ffffff").pack(side="left")
-        tk.Label(fila, text=f"{horas:g} h", width=8, anchor="w", font=("Helvetica", 12, "bold"), fg="#222222", bg="#ffffff").pack(side="left")
-        tk.Label(fila, text=actividad, anchor="w", font=("Helvetica", 12), fg="#333333", bg="#ffffff", wraplength=700, justify="left").pack(side="left", fill="x", expand=True)
+    def _mostrar_plan_semana(self):
+        hoy = date.today()
+        calendario = generar_planificacion(CATALOGO, self.planificacion, hoy)
+        horas_registradas = horas_registradas_por_fecha(self.planificacion)
+        for offset in range(7):
+            fecha = hoy + timedelta(days=offset)
+            dia = DIAS_SEMANA[fecha.weekday()]
+            horas_totales_dia = max(
+                0.0,
+                float(self.planificacion.get("disponibilidad", {}).get(dia, 0) or 0),
+            )
+            horas = max(
+                0.0,
+                horas_totales_dia - horas_registradas.get(fecha.isoformat(), 0.0),
+            )
+            asignaciones = calendario.get(fecha.isoformat(), [])
+            plan_texto = " · ".join(
+                f"{asignacion['horas']:.0f} h {asignacion['modulo']}: "
+                f"{', '.join(asignacion['detalles'])}"
+                for asignacion in asignaciones
+            )
+            if not plan_texto:
+                texto = (
+                    "Sin capacidad disponible"
+                    if horas < 1
+                    else (
+                        "Sin contenido desbloqueado pendiente"
+                        if not calcular_carga_pendiente(CATALOGO, self.planificacion)
+                        else "Sin unidad asignada; Antigravity se reserva para el miércoles"
+                    )
+                )
+            else:
+                texto = plan_texto
+            reales = horas_registradas.get(fecha.isoformat(), 0.0)
+            if reales:
+                texto = f"Real: {reales:.1f} h · {texto}"
+            fila = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=12, pady=10)
+            fila.pack(fill="x", pady=2)
+            tk.Label(fila, text=f"{dia[:3]} {fecha.strftime('%d/%m')}", width=12, anchor="w", font=("Helvetica", 10, "bold"), fg=TEXT, bg=CARD).pack(side="left")
+            horas_planificadas = sum(item["horas"] for item in asignaciones)
+            tk.Label(fila, text=f"{horas_planificadas:.1f}/{horas:.1f} h", width=9, anchor="w", font=("Helvetica", 10, "bold"), fg=ACCENT, bg=CARD).pack(side="left")
+            tk.Label(fila, text=texto, anchor="w", font=("Helvetica", 10), fg=MUTED, bg=CARD).pack(side="left", fill="x", expand=True)
 
+    def _texto_para_horas(self, bolsas, horas):
+        restante = horas
+        partes = []
+        for categoria, lista in bolsas:
+            if not lista or restante <= 0:
+                continue
+            item = lista[0]
+            bloque = min(restante, item.get("horas", 1))
+            partes.append(f"{bloque:.1f} h · {categoria}: {item['nombre']} ({item['pendiente']})")
+            restante -= bloque
+        if restante > 0:
+            partes.append(f"{restante:.1f} h · repaso/apuntes")
+        return " + ".join(partes)
 
-def mostrar_plan_de_hoy(contenido):
-    limpiar_contenido(contenido)
-    planificacion = preparar_planificacion(cargar_planificacion())
-    hoy = date.today()
-    crear_titulo(contenido, "Plan de hoy", f"Qué hacer hoy · {hoy.strftime('%d/%m/%Y')}")
+    def mostrar_progreso(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        titulo(self.contenido, "Progreso", "Una lectura clara de lo que has hecho, lo que queda y el tiempo disponible.")
+        grid = tk.Frame(self.contenido, bg=BG)
+        grid.pack(fill="x")
+        for c in range(3):
+            grid.columnconfigure(c, weight=1)
+        valores = [
+            ("Máster", f"{float(self.planificacion.get('porcentaje_master', 36)):.0f}%", "Progreso global", ACCENT),
+            ("Inglés", f"{self.planificacion.get('porcentaje_ingles', 40):.0f}%", f"{self.planificacion.get('clases_ingles_completadas', 41)}/102 clases", ACCENT),
+            ("Horas registradas", f"{obtener_horas_realizadas_totales(self.planificacion):.1f} h", "Sesiones guardadas", TEXT),
+        ]
+        for i, item in enumerate(valores):
+            f = tarjeta(grid, *item)
+            f.grid(row=0, column=i, padx=(0 if i == 0 else 6, 0), sticky="nsew")
+            f.configure(height=120)
 
-    dia_hoy = DIAS_SEMANA[hoy.weekday()]
-    try:
-        horas_hoy = max(0.0, float(planificacion.get("disponibilidad", {}).get(dia_hoy, 0) or 0))
-    except (ValueError, TypeError):
-        horas_hoy = 0.0
-    realizadas = obtener_horas_del_dia(planificacion, hoy)
-    restantes_hoy = max(0.0, horas_hoy - realizadas)
-
-    tarjeta = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=20)
-    tarjeta.pack(fill="x", pady=(0, 15))
-    tk.Label(tarjeta, text=f"{dia_hoy}: {horas_hoy:g} h disponibles", font=("Helvetica", 18, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w")
-    tk.Label(tarjeta, text=f"Realizadas: {realizadas:g} h · Pendientes hoy: {restantes_hoy:g} h", font=("Helvetica", 13), fg="#333333", bg="#ffffff").pack(anchor="w", pady=(8, 0))
-
-    master, ingles, bonus = obtener_pendientes_academicos(planificacion)
-    tk.Label(tarjeta, text="Orden de prioridad", font=("Helvetica", 15, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w", pady=(18, 8))
-
-    prioridades = []
-    if master:
-        prioridades.append(("1 · Máster", master[0]["nombre"], master[0]["pendiente"]))
-    if ingles:
-        prioridades.append(("2 · Inglés", ingles[0]["nombre"], ingles[0]["pendiente"]))
-    if bonus:
-        prioridades.append(("3 · Bonus", bonus[0]["nombre"], bonus[0]["pendiente"]))
-
-    if not prioridades:
-        prioridades.append(("✓ Todo registrado", "No quedan contenidos pendientes registrados", "Puedes dedicar el tiempo a repaso o al proyecto de fin de máster."))
-
-    for nivel, nombre, detalle in prioridades:
-        fila = tk.Frame(tarjeta, bg="#ffffff")
-        fila.pack(fill="x", pady=4)
-        tk.Label(fila, text=nivel, width=15, anchor="w", font=("Helvetica", 12, "bold"), fg="#000000", bg="#ffffff").pack(side="left")
-        tk.Label(fila, text=f"{nombre} · {detalle}", anchor="w", font=("Helvetica", 12), fg="#333333", bg="#ffffff", wraplength=700, justify="left").pack(side="left", fill="x", expand=True)
-
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    pendientes_tareas = [t for t in tareas if not t.get("completada", False)]
-    pendientes_tareas.sort(key=lambda t: {"Alta": 0, "Media": 1, "Baja": 2}.get(t.get("prioridad", "Media"), 1))
-    tk.Label(contenido, text="Tareas pendientes", font=("Helvetica", 18, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(10, 8))
-    if pendientes_tareas:
-        for tarea in pendientes_tareas[:5]:
-            texto = f"{tarea.get('prioridad', 'Media')} · {tarea.get('nombre', 'Sin nombre')} · {tarea.get('categoria', 'General')}"
-            tk.Label(contenido, text=texto, font=("Helvetica", 12), fg="#333333", bg="#ffffff", anchor="w", padx=12, pady=8).pack(fill="x", pady=2)
-    else:
-        tk.Label(contenido, text="No tienes tareas pendientes creadas.", font=("Helvetica", 12), fg="#555555", bg="#ffffff", padx=12, pady=10).pack(fill="x")
-
-    tk.Label(contenido, text="Cómo registrar lo que haces", font=("Helvetica", 18, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(20, 8))
-    tk.Label(contenido, text="Ve a Planificación → 'Registrar qué has hecho' y apunta la actividad, módulo, horas y horario. Así el planificador podrá comparar lo previsto con lo realizado.", font=("Helvetica", 12), fg="#555555", bg="#f7f7f7", wraplength=850, justify="left").pack(anchor="w")
-
-def crear_calendario_meses(contenedor, planificacion):
-    marco = tk.Frame(contenedor, bg="#f7f7f7")
-    marco.pack(fill="x", pady=(20, 0))
-    tk.Label(marco, text="Calendario hasta el objetivo", font=("Helvetica", 20, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(0, 15))
-    objetivo = obtener_fecha_objetivo(planificacion)
-    hoy = date.today()
-    fecha_mes = date(hoy.year, hoy.month, 1)
-    ultimo = date(objetivo.year, objetivo.month, 1)
-    meses = []
-    while fecha_mes <= ultimo:
-        meses.append(fecha_mes)
-        fecha_mes = date(fecha_mes.year + (1 if fecha_mes.month == 12 else 0), 1 if fecha_mes.month == 12 else fecha_mes.month + 1, 1)
-    tarjetas = tk.Frame(marco, bg="#f7f7f7")
-    tarjetas.pack(fill="x")
-    for c in range(2):
-        tarjetas.columnconfigure(c, weight=1)
-    for indice, mes in enumerate(meses):
-        tarjeta = tk.Frame(tarjetas, bg="#ffffff", relief="solid", borderwidth=1, padx=15, pady=15)
-        tarjeta.grid(row=indice // 2, column=indice % 2, padx=5, pady=5, sticky="nsew")
-        estado = "Mes actual" if (mes.year, mes.month) == (hoy.year, hoy.month) else ("Mes del objetivo" if (mes.year, mes.month) == (objetivo.year, objetivo.month) else "Planificación")
-        tk.Label(tarjeta, text=f"{MESES[mes.month - 1]} {mes.year}", font=("Helvetica", 15, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w")
-        tk.Label(tarjeta, text=estado, font=("Helvetica", 11), fg="#555555", bg="#ffffff").pack(anchor="w", pady=(5, 0))
-
-
-def guardar_progreso_modulo(planificacion, clave, campo, entrada):
-    try:
-        valor = int(entrada.get())
-        if valor < 0:
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Dato incorrecto", "Introduce un número entero válido.")
-        return
-    planificacion.setdefault("progreso_tema", {}).setdefault(clave, {})[campo] = valor
-    guardar_planificacion_datos(planificacion)
-    messagebox.showinfo("Guardado", "Progreso del temario guardado.")
-
-
-def mostrar_temario(contenido):
-    limpiar_contenido(contenido)
-    planificacion = preparar_planificacion(cargar_planificacion())
-    crear_titulo(contenido, "Temario", "Máster, inglés y bonus: contenido pendiente y progreso registrado")
-    tk.Label(contenido, text=(f"Máster: {obtener_progreso_academico(planificacion):.0f}% · Inglés: {obtener_progreso_ingles(planificacion):.0f}% "
-                              f"({planificacion.get('clases_ingles_completadas', 30)}/102 clases)"),
-             font=("Helvetica", 14, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(0, 12))
-    tk.Label(contenido, text="En cada módulo puedes indicar cuántas clases, tareas y evaluaciones llevas hechas. La aplicación conserva esos datos en planificacion.json.",
-             font=("Helvetica", 12), fg="#555555", bg="#f7f7f7", wraplength=850, justify="left").pack(anchor="w", pady=(0, 15))
-
-    for bloque, modulos in TEMARIO.items():
-        encabezado = tk.Frame(contenido, bg="#e8e8e8", padx=12, pady=10)
-        encabezado.pack(fill="x", pady=(12, 5))
-        tk.Label(encabezado, text=bloque, font=("Helvetica", 16, "bold"), fg="#000000", bg="#e8e8e8").pack(anchor="w")
-        for nombre, datos in modulos.items():
-            clave = f"{bloque}|{nombre}"
-            guardado = planificacion.get("progreso_tema", {}).get(clave, {})
-            fila = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=10, pady=8)
+        tk.Label(self.contenido, text="Hitos actuales", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
+        clases_ingles = self.planificacion["clases_ingles_completadas"]
+        progreso_antigravity = self.planificacion["progreso_tema"].get(
+            "MÁSTER · PREWORK|Google Antigravity", {}
+        )
+        clases_antigravity = min(
+            10, _entero_no_negativo(progreso_antigravity.get("clases", 0))
+        )
+        apuntes_antigravity = self.planificacion["detalle_modulo"]["Google Antigravity"]["apuntes"]
+        html = self.planificacion["detalle_modulo"]["HTML"]
+        hitos = [
+            (
+                "Inglés",
+                "Unidad 12 completada" if clases_ingles >= 41 else f"{clases_ingles}/41 clases hasta completar la unidad 12",
+                SUCCESS if clases_ingles >= 41 else WARNING,
+            ),
+            ("Creación de agentes", "Apuntes terminados", SUCCESS),
+            (
+                "Google Antigravity",
+                f"Clases {clases_antigravity}/10 · apuntes {apuntes_antigravity}/10",
+                SUCCESS if clases_antigravity >= 10 and apuntes_antigravity >= 10 else WARNING,
+            ),
+            (
+                "HTML",
+                f"Tema 1: {html['tema_1']}/7 · Tema 2: {html['tema_2']}/6",
+                ACCENT,
+            ),
+        ]
+        for nombre, detalle, color in hitos:
+            fila = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=14, pady=11)
             fila.pack(fill="x", pady=3)
-            resumen = (f"{nombre}  ·  {datos.get('temas', 0)} temas  ·  {datos.get('clases', 0)} clases  ·  "
-                       f"{datos.get('tareas', 0)} tareas  ·  {datos.get('evaluaciones', 0)} evaluaciones")
-            tk.Label(fila, text=resumen, font=("Helvetica", 11, "bold"), fg="#222222", bg="#ffffff", anchor="w").grid(row=0, column=0, columnspan=6, sticky="w")
-            if datos.get("estado"):
-                tk.Label(fila, text=datos["estado"], font=("Helvetica", 10), fg="#555555", bg="#ffffff").grid(row=1, column=0, columnspan=6, sticky="w", pady=(3, 5))
-            entradas = {}
-            for col, (campo, etiqueta, maximo) in enumerate([
-                ("clases", "Clases hechas", datos.get("clases", 0)),
-                ("tareas", "Tareas hechas", datos.get("tareas", 0)),
-                ("evaluaciones", "Evaluaciones hechas", datos.get("evaluaciones", 0)),
-            ]):
-                tk.Label(fila, text=etiqueta, font=("Helvetica", 9), fg="#555555", bg="#ffffff").grid(row=2, column=col * 2, sticky="w", pady=(4, 0))
-                e = tk.Entry(fila, width=7, fg="#000000", bg="#ffffff")
-                e.insert(0, str(guardado.get(campo, 0)))
-                e.grid(row=3, column=col * 2, sticky="w", padx=(0, 8))
-                entradas[campo] = e
-            tk.Button(fila, text="Guardar", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-                      command=lambda k=clave, es=entradas: guardar_progreso_modulo_dict(planificacion, k, es)).grid(row=3, column=6, padx=8, sticky="e")
-            fila.columnconfigure(6, weight=1)
+            tk.Label(fila, text="●", font=("Helvetica", 12), fg=color, bg=CARD).pack(side="left", padx=(0, 9))
+            tk.Label(fila, text=nombre, font=("Helvetica", 11, "bold"), fg=TEXT, bg=CARD, width=22, anchor="w").pack(side="left")
+            tk.Label(fila, text=detalle, font=("Helvetica", 10), fg=MUTED, bg=CARD, anchor="w").pack(side="left", fill="x", expand=True)
 
+        objetivo = obtener_fecha_objetivo(self.planificacion)
+        capacidad = obtener_capacidad_hasta_objetivo(self.planificacion)
+        restante = horas_master_restantes(self.planificacion)
+        tk.Label(self.contenido, text="Viabilidad hasta el objetivo", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
+        frame = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=18)
+        frame.pack(fill="x")
+        tk.Label(frame, text=f"Te quedan {restante:.1f} h estimadas de máster hasta el {objetivo.strftime('%d/%m/%Y')}. La capacidad disponible configurada es de {capacidad:.1f} h.", font=("Helvetica", 12), fg=TEXT, bg=CARD, wraplength=900, justify="left").pack(anchor="w")
 
-def guardar_progreso_modulo_dict(planificacion, clave, entradas):
-    datos = {}
-    for campo, entrada in entradas.items():
+    def mostrar_configuracion(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        titulo(self.contenido, "Configuración", "Aquí puedes corregir los datos globales sin abrir VS Code.")
+        frame = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=20, pady=20)
+        frame.pack(fill="x")
+        campos = {}
+        definiciones = [
+            ("Fecha objetivo", "fecha_objetivo", self.planificacion.get("fecha_objetivo", "31/03/2027")),
+            ("Progreso global del máster (%)", "porcentaje_master", str(self.planificacion.get("porcentaje_master", 36))),
+            ("Horas estimadas del máster", "horas_estimadas", str(self.planificacion.get("horas_estimadas", 500))),
+            ("Clases de inglés completadas", "clases_ingles_completadas", str(self.planificacion.get("clases_ingles_completadas", 41))),
+            ("Estimación por clase (h)", "estimacion_clase", str(self.planificacion["estimaciones"]["clase"])),
+            ("Estimación por apuntes (h)", "estimacion_apuntes", str(self.planificacion["estimaciones"]["apuntes"])),
+            ("Estimación por clase + apuntes (h)", "estimacion_clase_apuntes", str(self.planificacion["estimaciones"]["clase_apuntes"])),
+            ("Estimación por tarea (h)", "estimacion_tarea", str(self.planificacion["estimaciones"]["tarea"])),
+            ("Estimación por evaluación (h)", "estimacion_evaluacion", str(self.planificacion["estimaciones"]["evaluacion"])),
+            ("Estimación por tutoría (h)", "estimacion_tutoria", str(self.planificacion["estimaciones"]["tutoria"])),
+            ("Estimación por clase en directo (h)", "estimacion_clase_directo", str(self.planificacion["estimaciones"]["clase_directo"])),
+            ("Estimación por práctica (h)", "estimacion_practica", str(self.planificacion["estimaciones"]["practica"])),
+            ("Estimación por TFM (h)", "estimacion_tfm", str(self.planificacion["estimaciones"]["tfm"])),
+        ]
+        for fila, (etiqueta, clave, valor) in enumerate(definiciones):
+            tk.Label(frame, text=etiqueta, font=("Helvetica", 10, "bold"), fg=TEXT, bg=CARD).grid(row=fila, column=0, sticky="w", pady=7)
+            entrada = ttk.Entry(frame, width=20)
+            entrada.insert(0, valor)
+            entrada.grid(row=fila, column=1, sticky="w", padx=18, pady=7)
+            campos[clave] = entrada
+        boton(frame, "Guardar configuración", lambda: self._guardar_configuracion(campos), True).grid(row=len(definiciones), column=1, sticky="w", pady=(12, 0))
+
+        info = tk.Frame(self.contenido, bg=SOFT_AMBER, highlightbackground="#fde68a", highlightthickness=1, padx=18, pady=15)
+        info.pack(fill="x", pady=18)
+        tk.Label(info, text="Cómo se genera la planificación", font=("Helvetica", 13, "bold"), fg=TEXT, bg=SOFT_AMBER).pack(anchor="w")
+        tk.Label(info, text="• Cada tipo de actividad tiene su estimación editable. Al registrar una sesión, el campo de horas se rellena con la estimación del tipo elegido.\n• Los tiempos reales de las últimas cinco sesiones del mismo módulo y tipo ajustan automáticamente la previsión de las actividades del temario.\n• El plan asigna trabajo pendiente a los días con disponibilidad hasta la fecha objetivo.\n• El máster ocupa primero el tiempo; mientras siga pendiente, se planifica además una actividad diaria de inglés si cabe.\n• Registrar una clase, tarea o evaluación actualiza el progreso correspondiente; una clase de HTML también avanza su siguiente lección y un registro de TFM actualiza su tarea.\n• Antigravity conserva su sesión semanal del miércoles. Los bonus se planifican después del contenido obligatorio.\n• El porcentaje global del máster es una estimación manual; se recalcula el tiempo pendiente al cambiarlo.", font=("Helvetica", 10), fg=TEXT, bg=SOFT_AMBER, justify="left").pack(anchor="w", pady=(7, 0))
+
+    def _guardar_configuracion(self, campos):
         try:
-            valor = int(entrada.get())
-            if valor < 0:
+            fecha = datetime.strptime(campos["fecha_objetivo"].get().strip(), "%d/%m/%Y").date()
+            master = float(campos["porcentaje_master"].get())
+            horas = float(campos["horas_estimadas"].get())
+            ingles = int(campos["clases_ingles_completadas"].get())
+            tipos_estimacion = (
+                "clase",
+                "apuntes",
+                "clase_apuntes",
+                "tarea",
+                "evaluacion",
+                "tutoria",
+                "clase_directo",
+                "practica",
+                "tfm",
+            )
+            estimaciones = {
+                tipo: float(campos[f"estimacion_{tipo}"].get())
+                for tipo in tipos_estimacion
+            }
+            if not (
+                math.isfinite(master)
+                and math.isfinite(horas)
+                and                                 all(math.isfinite(valor) and valor > 0 for valor in estimaciones.values())
+                and 0 <= master <= 100
+                and horas >= 0
+                and 0 <= ingles <= 102
+            ):
                 raise ValueError
         except ValueError:
-            messagebox.showerror("Dato incorrecto", "El progreso debe ser un número entero no negativo.")
+            messagebox.showerror(
+                "Configuración",
+                "Revisa la fecha, los porcentajes, las horas y las estimaciones (deben ser mayores que 0).",
+            )
             return
-        datos[campo] = valor
-    planificacion.setdefault("progreso_tema", {})[clave] = datos
-    guardar_planificacion_datos(planificacion)
-    messagebox.showinfo("Guardado", "Progreso del módulo guardado.")
-
-
-def mostrar_planificacion(contenido):
-    planificacion = preparar_planificacion(cargar_planificacion())
-    generar_tareas_automaticas(planificacion)
-    limpiar_contenido(contenido)
-    crear_titulo(contenido, "Planificación", "Organiza tus semanas hasta el 31 de marzo de 2027")
-    objetivo = obtener_fecha_objetivo(planificacion)
-    semanas = calcular_semanas_restantes(objetivo)
-    horas_semana = obtener_horas_registradas_semana(planificacion, obtener_semana_actual()[0])
-    objetivo_semana = float(planificacion.get("horas_semanales_objetivo", 33.0))
-    necesarias = calcular_horas_necesarias(planificacion, objetivo)
-
-    panel = tk.Frame(contenido, bg="#f7f7f7")
-    panel.pack(fill="x")
-    for c in range(2):
-        panel.columnconfigure(c, weight=1)
-    tarjeta = tk.Frame(panel, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=15)
-    tarjeta.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-    tk.Label(tarjeta, text="Fecha objetivo", fg="#555555", bg="#ffffff").pack(anchor="w")
-    tk.Label(tarjeta, text=objetivo.strftime("%d/%m/%Y"), font=("Helvetica", 20, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w", pady=(5, 0))
-    tarjeta2 = tk.Frame(panel, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=15)
-    tarjeta2.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
-    tk.Label(tarjeta2, text="Objetivo semanal", fg="#555555", bg="#ffffff").pack(anchor="w")
-    entrada_obj = tk.Entry(tarjeta2, width=10, fg="#000000", bg="#ffffff")
-    entrada_obj.insert(0, str(planificacion.get("horas_semanales_objetivo", 33.0)))
-    entrada_obj.pack(side="left", pady=(5, 0))
-    tk.Button(tarjeta2, text="Guardar", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-              command=lambda: cambiar_objetivo_semanal(planificacion, entrada_obj)).pack(side="left", padx=10, pady=(5, 0))
-
-    ritmo = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=15)
-    ritmo.pack(fill="x", pady=12)
-    tk.Label(ritmo, text="Ritmo y situación", font=("Helvetica", 17, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w")
-    texto = (f"Quedan aproximadamente {semanas} semanas.\n"
-             f"Máster: {obtener_progreso_academico(planificacion):.0f}% · Inglés: {obtener_progreso_ingles(planificacion):.0f}%\n"
-             f"Esta semana: {horas_semana:g} / {objetivo_semana:g} h.\n"
-             f"Ritmo calculable necesario: {necesarias:.1f} h/semana cuando se haya indicado una estimación total del máster.")
-    tk.Label(ritmo, text=texto, font=("Helvetica", 13), justify="left", fg="#333333", bg="#ffffff").pack(anchor="w", pady=(8, 0))
-
-    disponibilidad = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=15, pady=15)
-    disponibilidad.pack(fill="x", pady=(5, 10))
-    tk.Label(disponibilidad, text="¿Cuántas horas tienes cada día esta semana?", font=("Helvetica", 17, "bold"), fg="#222222", bg="#ffffff").pack(anchor="w")
-    entradas = {}
-    fila = tk.Frame(disponibilidad, bg="#ffffff")
-    fila.pack(fill="x", pady=10)
-    for i, dia in enumerate(DIAS_SEMANA):
-        celda = tk.Frame(fila, bg="#ffffff")
-        celda.grid(row=0, column=i, padx=3, sticky="nsew")
-        fila.columnconfigure(i, weight=1)
-        tk.Label(celda, text=dia[:3], fg="#555555", bg="#ffffff").pack()
-        e = tk.Entry(celda, width=7, justify="center", fg="#000000", bg="#ffffff")
-        e.insert(0, str(planificacion.get("disponibilidad", {}).get(dia, 0)))
-        e.pack(pady=3)
-        entradas[dia] = e
-    tk.Button(disponibilidad, text="Guardar disponibilidad y recalcular", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-              command=lambda: guardar_disponibilidad_y_refrescar(contenido, planificacion, entradas)).pack(anchor="w")
-
-    mostrar_plan_diario(contenido, planificacion)
-
-    crear_registro_actividad(contenido, planificacion)
-
-    registro_manual = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=15, pady=15)
-    registro_manual.pack(fill="x", pady=(0, 10))
-    tk.Label(registro_manual, text="Registro rápido de horas de hoy", font=("Helvetica", 15, "bold"), fg="#222222", bg="#ffffff").pack(side="left")
-    entrada_horas = tk.Entry(registro_manual, width=8, fg="#000000", bg="#ffffff")
-    entrada_horas.pack(side="left", padx=10)
-    tk.Button(registro_manual, text="Registrar", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-              command=lambda: registrar_horas_hoy(planificacion, entrada_horas)).pack(side="left")
-
-    mostrar_historial_actividades(contenido, planificacion)
-    crear_calendario_meses(contenido, planificacion)
-
-
-def guardar_disponibilidad_y_refrescar(contenido, planificacion, entradas):
-    disponibilidad = {}
-    for dia, entrada in entradas.items():
-        try:
-            valor = float(entrada.get() or 0)
-            if valor < 0:
-                raise ValueError
-        except ValueError:
-            messagebox.showerror("Dato incorrecto", f"Horas no válidas para {dia}.")
+        self.planificacion.update({"fecha_objetivo": fecha.strftime("%d/%m/%Y"), "porcentaje_master": master, "horas_estimadas": horas})
+        self.planificacion["estimaciones"] = estimaciones
+        establecer_clases_ingles(self.planificacion, ingles)
+        if not self.guardar():
+            self.planificacion = cargar_planificacion()
             return
-        disponibilidad[dia] = valor
-    planificacion["disponibilidad"] = disponibilidad
-    guardar_planificacion_datos(planificacion)
-    mostrar_planificacion(contenido)
+        messagebox.showinfo("Guardado", "Configuración actualizada.")
+        self.mostrar_inicio()
 
+    def abrir_pomodoro(self):
+        Pomodoro(self.ventana)
 
-def mostrar_progreso(contenido):
-    limpiar_contenido(contenido)
-    planificacion = preparar_planificacion(cargar_planificacion())
-    tareas = cargar_tareas(ARCHIVO_TAREAS)
-    completadas = sum(1 for tarea in tareas if tarea.get("completada", False))
-    crear_titulo(contenido, "Progreso", "Tu progreso académico y tu tiempo real")
-    marco = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=20)
-    marco.pack(fill="x")
-    texto = (f"Máster: {obtener_progreso_academico(planificacion):.0f}%\n\n"
-             f"Inglés: {obtener_progreso_ingles(planificacion):.0f}% ({planificacion.get('clases_ingles_completadas', 30)}/102 clases)\n\n"
-             f"Tareas de la aplicación: {completadas}/{len(tareas)} completadas\n\n"
-             f"Actividades registradas: {len(planificacion.get('actividades_realizadas', []))}")
-    tk.Label(marco, text=texto, font=("Helvetica", 16), justify="left", fg="#222222", bg="#ffffff").pack(anchor="w")
+    def mostrar_calendario(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
+        titulo(
+            self.contenido,
+            "Calendario",
+            "Plan previsto y sesiones reales por día, hasta tu fecha objetivo.",
+        )
+        calendario = generar_planificacion(CATALOGO, self.planificacion)
+        CalendarioAcademico(
+            self.contenido,
+            self.planificacion.get("actividades_realizadas", []),
+            calendario,
+            obtener_fecha_objetivo(self.planificacion),
+        )
+    def mostrar_estadisticas(self):
+        limpiar(self.contenido)
+        self.planificacion = cargar_planificacion()
 
-    actividades = planificacion.get("actividades_realizadas", [])[-10:]
-    if actividades:
-        tk.Label(contenido, text="Últimas actividades", font=("Helvetica", 18, "bold"), fg="#222222", bg="#f7f7f7").pack(anchor="w", pady=(20, 10))
-        for actividad in reversed(actividades):
-            tk.Label(contenido, text=f"{actividad.get('fecha')} · {actividad.get('horas', 0)} h · {actividad.get('actividad')} · {actividad.get('modulo', '')}",
-                     font=("Helvetica", 12), fg="#333333", bg="#ffffff", padx=10, pady=8, anchor="w").pack(fill="x", pady=2)
+        titulo(self.contenido, "Estadísticas", "Resumen real de tu esfuerzo acumulado")
 
+        actividades = self.planificacion.get("actividades_realizadas", [])
+        total = horas_totales(actividades)
+        semana = horas_ultima_semana(actividades)
 
-def mostrar_configuracion(contenido):
-    limpiar_contenido(contenido)
-    planificacion = preparar_planificacion(cargar_planificacion())
-    crear_titulo(contenido, "Configuración", "Datos base de tu planificación")
-    marco = tk.Frame(contenido, bg="#ffffff", relief="solid", borderwidth=1, padx=20, pady=20)
-    marco.pack(fill="x")
-    tk.Label(marco, text="Progreso actual del máster (%)", fg="#222222", bg="#ffffff").grid(row=0, column=0, sticky="w", pady=5)
-    master = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    master.insert(0, str(planificacion.get("porcentaje_master", 35)))
-    master.grid(row=0, column=1, sticky="w", padx=10)
-    tk.Label(marco, text="Progreso actual de inglés (%)", fg="#222222", bg="#ffffff").grid(row=1, column=0, sticky="w", pady=5)
-    ingles = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    ingles.insert(0, str(planificacion.get("porcentaje_ingles", 29)))
-    ingles.grid(row=1, column=1, sticky="w", padx=10)
-    tk.Label(marco, text="Clases de inglés completadas", fg="#222222", bg="#ffffff").grid(row=2, column=0, sticky="w", pady=5)
-    clases = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    clases.insert(0, str(planificacion.get("clases_ingles_completadas", 30)))
-    clases.grid(row=2, column=1, sticky="w", padx=10)
-    tk.Label(marco, text="Estimación total de horas del máster", fg="#222222", bg="#ffffff").grid(row=3, column=0, sticky="w", pady=5)
-    horas = tk.Entry(marco, width=10, fg="#000000", bg="#ffffff")
-    horas.insert(0, str(planificacion.get("horas_totales_master", 0)))
-    horas.grid(row=3, column=1, sticky="w", padx=10)
-    tk.Button(marco, text="Guardar datos", fg="#000000", bg="#eeeeee", activeforeground="#000000",
-              command=lambda: guardar_configuracion(planificacion, master, ingles, clases, horas)).grid(row=4, column=1, sticky="w", pady=12)
+        cards = [
+            ("Horas totales", f"{total:.1f} h", "Desde el inicio"),
+            ("Últimos 7 días", f"{semana:.1f} h", "Estudio reciente"),
+            ("Sesiones", str(len(actividades)), "Registradas"),
+        ]
 
+        grid = tk.Frame(self.contenido, bg=BG)
+        grid.pack(fill="x")
+        for i in range(len(cards)):
+            grid.columnconfigure(i, weight=1)
 
-def guardar_configuracion(planificacion, master, ingles, clases, horas):
-    try:
-        pm = float(master.get()); pi = float(ingles.get()); ci = int(clases.get()); ht = float(horas.get())
-        if not (0 <= pm <= 100 and 0 <= pi <= 100 and ci >= 0 and ht >= 0):
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Dato incorrecto", "Revisa los valores introducidos.")
-        return
-    planificacion["porcentaje_master"] = pm
-    planificacion["porcentaje_ingles"] = pi
-    planificacion["clases_ingles_completadas"] = ci
-    planificacion["horas_totales_master"] = ht
-    guardar_planificacion_datos(planificacion)
-    messagebox.showinfo("Guardado", "Datos actualizados.")
+        for i, (titulo_card, valor, detalle) in enumerate(cards):
+            frame = tarjeta(grid, titulo_card, valor, detalle, ACCENT)
+            frame.grid(row=0, column=i, padx=6, sticky="nsew")
+            frame.configure(height=120)
 
+        tk.Label(self.contenido, text="Horas por módulo", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(25, 10))
 
-def crear_contenedor_scroll(ventana):
-    """Crea una zona de contenido con scroll vertical y horizontal."""
-    marco_externo = tk.Frame(ventana, bg="#f7f7f7")
-    marco_externo.pack(side="right", fill="both", expand=True)
-
-    canvas = tk.Canvas(marco_externo, bg="#f7f7f7", highlightthickness=0)
-    scrollbar_y = tk.Scrollbar(marco_externo, orient="vertical", command=canvas.yview)
-    scrollbar_x = tk.Scrollbar(marco_externo, orient="horizontal", command=canvas.xview)
-    contenido = tk.Frame(canvas, bg="#f7f7f7", padx=40, pady=30)
-
-    ventana_canvas = canvas.create_window((0, 0), window=contenido, anchor="nw")
-    canvas.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-
-    def actualizar_scrollregion(_event=None):
-        canvas.configure(scrollregion=canvas.bbox("all"))
-
-    def ajustar_ancho(_event):
-        # El contenido ocupa el ancho disponible, pero puede crecer horizontalmente
-        # cuando una vista necesita más anchura.
-        canvas.itemconfigure(ventana_canvas, width=max(contenido.winfo_reqwidth(), canvas.winfo_width()))
-        actualizar_scrollregion()
-
-    contenido.bind("<Configure>", actualizar_scrollregion)
-    canvas.bind("<Configure>", ajustar_ancho)
-    canvas.pack(side="left", fill="both", expand=True)
-    scrollbar_y.pack(side="right", fill="y")
-    scrollbar_x.pack(side="bottom", fill="x")
-
-    # Rueda del ratón / trackpad. Tkinter utiliza eventos distintos según macOS,
-    # Windows y Linux, así que cubrimos los tres casos.
-    def rueda_vertical(event):
-        if getattr(event, "num", None) == 4:
-            canvas.yview_scroll(-3, "units")
-        elif getattr(event, "num", None) == 5:
-            canvas.yview_scroll(3, "units")
-        else:
-            delta = event.delta
-            if delta == 0:
-                return
-            unidades = max(1, abs(int(delta / 120)))
-            canvas.yview_scroll(-unidades if delta > 0 else unidades, "units")
-
-    def rueda_horizontal(event):
-        delta = event.delta
-        if delta == 0:
+        modulos = horas_por_modulo(actividades)
+        if not modulos:
+            tk.Label(self.contenido, text="Todavía no hay datos.", fg=MUTED, bg=BG).pack(anchor="w")
             return
-        unidades = max(1, abs(int(delta / 120)))
-        canvas.xview_scroll(-unidades if delta > 0 else unidades, "units")
 
-    canvas.bind_all("<MouseWheel>", rueda_vertical)
-    canvas.bind_all("<Shift-MouseWheel>", rueda_horizontal)
-    canvas.bind_all("<Button-4>", rueda_vertical)
-    canvas.bind_all("<Button-5>", rueda_vertical)
-
-    # El contenido puede recibir foco para que la rueda funcione aunque el cursor
-    # esté encima de una etiqueta, entrada o botón.
-    canvas.focus_set()
-
-    return contenido
+        ordenados = sorted(modulos.items(), key=lambda x: x[1], reverse=True)
+        for nombre, horas in ordenados:
+            fila = tk.Frame(
+                self.contenido,
+                bg=CARD,
+                highlightbackground=BORDER,
+                highlightthickness=1,
+                padx=14,
+                pady=10,
+            )
+            fila.pack(fill="x", pady=3)
+            tk.Label(fila, text=nombre, font=("Helvetica", 11, "bold"), bg=CARD, fg=TEXT).pack(side="left")
+            tk.Label(fila, text=f"{horas:.1f} h", font=("Helvetica", 11), bg=CARD, fg=ACCENT).pack(side="right")
+    def ejecutar(self):
+        self.ventana.mainloop()
 
 
 def crear_ventana():
-    ventana = tk.Tk()
-    ventana.title("Conquer Planner")
-    ventana.geometry("1100x750")
-    ventana.minsize(900, 600)
-    ventana.configure(bg="#f7f7f7")
-
-    menu = tk.Frame(ventana, width=220, bg="#e8e8e8")
-    menu.pack(side="left", fill="y")
-    menu.pack_propagate(False)
-
-    contenido = crear_contenedor_scroll(ventana)
-
-    tk.Label(menu, text="CONQUER\nPLANNER", font=("Helvetica", 20, "bold"), fg="#222222", bg="#e8e8e8").pack(pady=(40, 35))
-
-    botones = [
-        ("Inicio", mostrar_inicio),
-        ("Plan de hoy", mostrar_plan_de_hoy),
-        ("Tareas", mostrar_tareas_en_interfaz),
-        ("Temario", mostrar_temario),
-        ("Planificación", mostrar_planificacion),
-        ("Progreso", mostrar_progreso),
-        ("Configuración", mostrar_configuracion),
-    ]
-    for texto, funcion in botones:
-        tk.Button(menu, text=texto, width=20, fg="#000000", bg="#e8e8e8", activeforeground="#000000", activebackground="#d8d8d8",
-                  relief="flat", command=lambda f=funcion: f(contenido)).pack(pady=5)
-
-    mostrar_inicio(contenido)
-    ventana.mainloop()
+    ConquerPlanner().ejecutar()
 
 
 if __name__ == "__main__":

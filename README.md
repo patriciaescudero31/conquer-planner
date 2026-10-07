@@ -1,33 +1,83 @@
 # Conquer Planner
 
-Planificador académico en Python para organizar tareas, objetivos y disponibilidad de estudio.
+**Planificador académico inteligente local** para organizar máster, inglés, disponibilidad y progreso hasta una fecha objetivo.
 
-## Funcionalidades
+## Qué hace ahora
 
-- Ver el objetivo académico.
-- Añadir tareas.
-- Consultar tareas.
-- Marcar tareas como completadas.
-- Eliminar tareas.
-- Consultar el progreso general y por categoría.
-- Configurar la fecha objetivo.
-- Configurar las horas estimadas necesarias.
-- Configurar la disponibilidad semanal.
-- Calcular las horas disponibles hasta el objetivo.
+- **Plan de hoy automático** con prioridad Máster → Inglés → Bonus.
+- Bloque protegido de **Google Antigravity los miércoles**.
+- Seguimiento y edición del progreso por módulo.
+- Seguimiento de HTML, inglés y resto del catálogo.
+- Agenda diaria y semanal generada desde el temario, el progreso, la disponibilidad y la fecha objetivo.
+- Calendario mensual con planificación prevista y sesiones reales.
+- Registro de clases, apuntes, tareas, evaluaciones, tutorías, directos y práctica.
+- Estimación independiente de clases, apuntes, sesiones combinadas, tareas, evaluaciones, tutorías, clases en directo, práctica y TFM.
+- Las sesiones pueden actualizar el progreso académico y recalculan la planificación.
+- Estimaciones editables por clase, apuntes, tarea y evaluación.
+- Las últimas cinco sesiones reales por módulo y tipo ajustan las estimaciones automáticamente.
+- Cálculo automático de capacidad hasta el objetivo, horas pendientes y ritmo semanal.
+- Cálculo de horas de máster restantes y margen.
+- Gestión manual de tareas sin duplicados automáticos.
+- Configuración editable sin abrir VS Code.
+- Interfaz visual de fondo claro con navegación oscura y acentos turquesa.
+
+## Qué ofrece cada sección
+
+- **Inicio:** viabilidad hacia la fecha objetivo, ritmo semanal, carga pendiente y siguiente acción recomendada.
+- **Plan de hoy:** agenda académica concreta y horas disponibles restantes del día.
+- **Tareas:** creación y seguimiento de tareas personales, sin duplicar las actividades del temario.
+- **Temario:** progreso editable por módulo; los cambios se reflejan en la agenda que se genera al volver a Plan de hoy, Planificación o Calendario.
+- **Planificación:** disponibilidad por día, registro y corrección de sesiones, estimaciones, proyección semanal y carga que podría quedar fuera del objetivo.
+- **Progreso:** porcentajes globales, hitos actuales y capacidad frente a horas de máster pendientes.
+- **Calendario:** plan previsto y sesiones reales seleccionables por día y mes.
+- **Pomodoro:** temporizador de concentración independiente.
+- **Estadísticas:** horas registradas, actividad reciente y distribución del esfuerzo por módulo.
+- **Configuración:** fecha objetivo, horas/progreso globales, inglés y estimaciones específicas por tipo de actividad.
+
+Flujo recomendado: revisa **Plan de hoy**, estudia, registra el tiempo y el tipo de actividad en **Planificación** y deja que el progreso guardado recalcule la siguiente agenda. También puedes corregir el avance manualmente desde **Temario**.
 
 ## Requisitos
 
 - Python 3
+- Tkinter (incluido normalmente en Python de escritorio; en macOS debe estar disponible en la instalación de Python).
 - Entorno virtual recomendado.
 
 ## Instalación
 
-Clona el repositorio y entra en la carpeta del proyecto:
-
 ```bash
-git clone https://github.com/patriciaescudero31/conquer-planner.git
-cd conquer-planner
 python3 -m venv .venv
 source .venv/bin/activate
-python3 main.py
+python -m pip install -r requirements.txt
 ```
+
+## Ejecutar la aplicación
+
+```bash
+python main.py
+```
+
+También puedes abrir directamente la interfaz con `python interfaz.py`. Para
+usar la versión de terminal, ejecuta `python main.py --cli`.
+
+En macOS, activa el entorno virtual antes de iniciar:
+
+```bash
+source .venv/bin/activate
+python main.py
+```
+
+Si el entorno virtual ya está creado, también puedes iniciar directamente con:
+
+```bash
+.venv/bin/python main.py
+```
+
+## Ejecutar tests
+
+```bash
+python -m pytest -q
+```
+
+## Datos personales
+
+`planificacion.json`, `tareas.json`, `temario.json` y las guías locales están excluidos de Git. El código de la aplicación sí se versiona.

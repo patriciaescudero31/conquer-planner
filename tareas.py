@@ -30,9 +30,12 @@ def cargar_tareas(archivo_tareas):
 
     for tarea in datos:
         if isinstance(tarea, str):
+            nombre = tarea.strip()
+            if not nombre:
+                continue
             tareas.append(
                 {
-                    "nombre": tarea.strip(),
+                    "nombre": nombre,
                     "fecha_limite": "",
                     "prioridad": "Media",
                     "categoria": "General",
@@ -54,6 +57,11 @@ def cargar_tareas(archivo_tareas):
         fecha_limite = str(
             tarea.get("fecha_limite", "")
         ).strip()
+        if fecha_limite:
+            try:
+                datetime.strptime(fecha_limite, "%d/%m/%Y")
+            except ValueError:
+                fecha_limite = ""
 
         prioridad = tarea.get(
             "prioridad",
@@ -124,6 +132,7 @@ def guardar_tareas(tareas, archivo_tareas):
                 ensure_ascii=False,
                 indent=4,
             )
+        return True
 
     except OSError:
         print()
@@ -132,6 +141,7 @@ def guardar_tareas(tareas, archivo_tareas):
             "las tareas."
         )
         print()
+        return False
 
 
 def pedir_numero_tarea(tareas, mensaje):
