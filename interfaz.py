@@ -40,20 +40,21 @@ DIAS_SEMANA = [
 # ---------------------------------------------------------------------------
 # Identidad visual
 # ---------------------------------------------------------------------------
-BG = "#f8fafc"
+BG = "#f3f6f6"
 CARD = "#ffffff"
-SIDEBAR = "#0f172a"
-TEXT = "#111827"
-MUTED = "#64748b"
-BORDER = "#e2e8f0"
-ACCENT = "#0d9488"
-ACCENT_DARK = "#0f766e"
-SUCCESS = "#10b981"
-WARNING = "#f59e0b"
-DANGER = "#ef4444"
-SOFT_TEAL = "#ccfbf1"
-SOFT_RED = "#fee2e2"
-SOFT_AMBER = "#fef3c7"
+SIDEBAR = "#11191d"
+TEXT = "#182126"
+MUTED = "#68777d"
+BORDER = "#e1e8e9"
+ACCENT = "#087b7b"
+ACCENT_DARK = "#066565"
+SUCCESS = "#087b7b"
+WARNING = "#8c713e"
+DANGER = "#b94c4c"
+SOFT_TEAL = "#e2f5f4"
+SOFT_RED = "#f8e8e8"
+SOFT_AMBER = "#edf1ef"
+FONT_FAMILY = "Avenir Next"
 
 
 # ---------------------------------------------------------------------------
@@ -620,27 +621,30 @@ def titulo(contenido, texto, subtitulo=""):
 def tarjeta(parent, titulo_texto, valor, detalle="", color=TEXT):
     frame = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=16)
     frame.pack_propagate(False)
-    tk.Label(frame, text=titulo_texto.upper(), font=("Helvetica", 10, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
-    tk.Label(frame, text=valor, font=("Helvetica", 23, "bold"), fg=color, bg=CARD).pack(anchor="w", pady=(7, 2))
+    tk.Label(frame, text=titulo_texto.upper(), font=(FONT_FAMILY, 10, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
+    tk.Label(frame, text=valor, font=(FONT_FAMILY, 23, "bold"), fg=color, bg=CARD).pack(anchor="w", pady=(7, 2))
     if detalle:
-        tk.Label(frame, text=detalle, font=("Helvetica", 10), fg=MUTED, bg=CARD, wraplength=260, justify="left").pack(anchor="w")
+        tk.Label(frame, text=detalle, font=(FONT_FAMILY, 10), fg=MUTED, bg=CARD, wraplength=260, justify="left").pack(anchor="w")
     return frame
 
 
 def boton(parent, texto, comando, principal=False):
     normal = ACCENT if principal else CARD
-    hover = ACCENT_DARK if principal else "#f1f5f9"
+    hover = ACCENT_DARK if principal else "#e8f4f4"
     widget = tk.Button(
         parent,
         text=texto,
         command=comando,
-        font=("Helvetica", 10, "bold"),
-        fg="#ffffff" if principal else TEXT,
+        font=(FONT_FAMILY, 10, "bold"),
+        fg=CARD if principal else TEXT,
         bg=normal,
-        activeforeground="#ffffff" if principal else TEXT,
+        activeforeground=CARD if principal else TEXT,
         activebackground=hover,
         relief="flat",
         bd=0,
+        highlightthickness=1 if not principal else 0,
+        highlightbackground=BORDER,
+        highlightcolor=ACCENT,
         padx=12,
         pady=8,
         cursor="hand2",
@@ -704,17 +708,44 @@ class ConquerPlanner:
         except tk.TclError:
             pass
         style.configure("TLabel", background=BG, foreground=TEXT)
-        style.configure("Title.TLabel", background=BG, foreground=TEXT, font=("Helvetica", 28, "bold"))
-        style.configure("Subtitle.TLabel", background=BG, foreground=MUTED, font=("Helvetica", 12))
-        style.configure("TEntry", padding=7)
+        style.configure(
+            "Title.TLabel",
+            background=BG,
+            foreground=TEXT,
+            font=(FONT_FAMILY, 27, "bold"),
+        )
+        style.configure(
+            "Subtitle.TLabel",
+            background=BG,
+            foreground=MUTED,
+            font=(FONT_FAMILY, 11),
+        )
+        style.configure(
+            "TEntry",
+            padding=8,
+            fieldbackground=CARD,
+            foreground=TEXT,
+            bordercolor=BORDER,
+            lightcolor=BORDER,
+            darkcolor=BORDER,
+        )
+        style.map(
+            "TEntry",
+            bordercolor=[("focus", ACCENT)],
+            lightcolor=[("focus", ACCENT)],
+            darkcolor=[("focus", ACCENT)],
+        )
         style.configure(
             "TCombobox",
-            padding=7,
-            font=("Helvetica", 10),
+            padding=8,
+            font=(FONT_FAMILY, 10),
             fieldbackground=CARD,
             background=CARD,
             foreground=TEXT,
             arrowcolor=ACCENT_DARK,
+            bordercolor=BORDER,
+            lightcolor=BORDER,
+            darkcolor=BORDER,
         )
         style.map(
             "TCombobox",
@@ -723,7 +754,40 @@ class ConquerPlanner:
             selectbackground=[("readonly", CARD)],
             selectforeground=[("readonly", TEXT)],
         )
-        style.configure("Horizontal.TProgressbar", troughcolor="#e2e8f0", background=ACCENT, bordercolor="#e2e8f0", lightcolor=ACCENT, darkcolor=ACCENT)
+        style.configure(
+            "Treeview",
+            background=CARD,
+            fieldbackground=CARD,
+            foreground=TEXT,
+            bordercolor=BORDER,
+            rowheight=30,
+            font=(FONT_FAMILY, 10),
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", ACCENT)],
+            foreground=[("selected", CARD)],
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=BG,
+            foreground=MUTED,
+            relief="flat",
+            font=(FONT_FAMILY, 9, "bold"),
+        )
+        style.map(
+            "Treeview.Heading",
+            background=[("active", "#e8f4f4")],
+            foreground=[("active", TEXT)],
+        )
+        style.configure(
+            "Horizontal.TProgressbar",
+            troughcolor=BORDER,
+            background=ACCENT,
+            bordercolor=BORDER,
+            lightcolor=ACCENT,
+            darkcolor=ACCENT,
+        )
 
     def _construir_shell(self):
         self.sidebar = tk.Frame(self.ventana, bg=SIDEBAR, width=235)
@@ -732,9 +796,9 @@ class ConquerPlanner:
 
         logo = tk.Frame(self.sidebar, bg=SIDEBAR)
         logo.pack(fill="x", padx=22, pady=(28, 28))
-        tk.Label(logo, text="CONQUER", font=("Helvetica", 18, "bold"), fg="#ffffff", bg=SIDEBAR).pack(anchor="w")
-        tk.Label(logo, text="PLANNER", font=("Helvetica", 11, "bold"), fg="#5eead4", bg=SIDEBAR).pack(anchor="w")
-        tk.Label(logo, text="Executive Academic Intelligence", font=("Helvetica", 8), fg="#94a3b8", bg=SIDEBAR).pack(anchor="w", pady=(5, 0))
+        tk.Label(logo, text="CONQUER", font=(FONT_FAMILY, 18, "bold"), fg=CARD, bg=SIDEBAR).pack(anchor="w")
+        tk.Label(logo, text="PLANNER", font=(FONT_FAMILY, 11, "bold"), fg="#62d4d0", bg=SIDEBAR).pack(anchor="w")
+        tk.Label(logo, text="Executive Academic Intelligence", font=(FONT_FAMILY, 8), fg="#9aa9ad", bg=SIDEBAR).pack(anchor="w", pady=(5, 0))
 
         self.nav = tk.Frame(self.sidebar, bg=SIDEBAR)
         self.nav.pack(fill="x", padx=12)
@@ -750,22 +814,57 @@ class ConquerPlanner:
             ("⚙", "Configuración", self.mostrar_configuracion),
 
         ]
+        self.nav_buttons = []
+        self.nav_activo = None
         for icono, nombre, funcion in opciones:
-            b = tk.Button(self.nav, text=f"  {icono}   {nombre}", command=funcion, anchor="w", font=("Helvetica", 11, "bold"), fg="#cbd5e1", bg=SIDEBAR, activeforeground="#ffffff", activebackground="#1e293b", relief="flat", bd=0, padx=8, pady=10, cursor="hand2")
+            b = tk.Button(self.nav, text=f"  {icono}   {nombre}", command=lambda pagina=funcion: pagina(), anchor="w", font=(FONT_FAMILY, 10, "bold"), fg="#c3ced0", bg=SIDEBAR, activeforeground=CARD, activebackground="#1e3437", relief="flat", bd=0, padx=8, pady=10, cursor="hand2")
             b.pack(fill="x", pady=2)
+            b.configure(
+                command=lambda pagina=funcion, boton_nav=b: self._navegar(
+                    pagina,
+                    boton_nav,
+                )
+            )
+            self.nav_buttons.append(b)
+            if nombre == "Inicio":
+                self.nav_activo = b
+                b.configure(bg="#1e3437", fg=CARD)
+            b.bind(
+                "<Enter>",
+                lambda _event, boton_nav=b: boton_nav.configure(
+                    bg="#1b292d" if boton_nav is not self.nav_activo else "#1e3437"
+                ),
+            )
+            b.bind(
+                "<Leave>",
+                lambda _event, boton_nav=b: boton_nav.configure(
+                    bg="#1e3437" if boton_nav is self.nav_activo else SIDEBAR,
+                    fg=CARD if boton_nav is self.nav_activo else "#c3ced0",
+                ),
+            )
 
         objetivo = obtener_fecha_objetivo(self.planificacion)
-        pie = tk.Frame(self.sidebar, bg="#111c31", padx=15, pady=14)
+        pie = tk.Frame(self.sidebar, bg="#1b292d", padx=15, pady=14)
         pie.pack(side="bottom", fill="x", padx=12, pady=15)
-        tk.Label(pie, text="OBJETIVO", font=("Helvetica", 8, "bold"), fg="#94a3b8", bg="#111c31").pack(anchor="w")
-        tk.Label(pie, text=objetivo.strftime("%d/%m/%Y"), font=("Helvetica", 13, "bold"), fg="#ffffff", bg="#111c31").pack(anchor="w", pady=(3, 0))
-        tk.Label(pie, text=f"{dias_restantes(self.planificacion)} días restantes", font=("Helvetica", 9), fg="#5eead4", bg="#111c31").pack(anchor="w", pady=(2, 0))
+        tk.Label(pie, text="OBJETIVO", font=(FONT_FAMILY, 8, "bold"), fg="#9aa9ad", bg="#1b292d").pack(anchor="w")
+        tk.Label(pie, text=objetivo.strftime("%d/%m/%Y"), font=(FONT_FAMILY, 13, "bold"), fg=CARD, bg="#1b292d").pack(anchor="w", pady=(3, 0))
+        tk.Label(pie, text=f"{dias_restantes(self.planificacion)} días restantes", font=(FONT_FAMILY, 9), fg="#62d4d0", bg="#1b292d").pack(anchor="w", pady=(2, 0))
 
         self.main = tk.Frame(self.ventana, bg=BG)
         self.main.pack(side="right", fill="both", expand=True)
         self.contenido = crear_scroll(self.main)
         self.mostrar_inicio()
         self.ventana.after_idle(self._revisar_disponibilidad_dominical)
+
+    def _navegar(self, pagina, boton_activo):
+        self.nav_activo = boton_activo
+        for boton_nav in self.nav_buttons:
+            seleccionado = boton_nav is boton_activo
+            boton_nav.configure(
+                bg="#1e3437" if seleccionado else SIDEBAR,
+                fg=CARD if seleccionado else "#c3ced0",
+            )
+        pagina()
 
     def _revisar_disponibilidad_dominical(self):
         hoy = date.today()
@@ -812,7 +911,7 @@ class ConquerPlanner:
         tk.Label(
             marco,
             text="¿Cuántas horas tendrás para estudiar?",
-            font=("Helvetica", 17, "bold"),
+            font=(FONT_FAMILY, 17, "bold"),
             fg=TEXT,
             bg=CARD,
         ).pack(anchor="w")
@@ -823,7 +922,7 @@ class ConquerPlanner:
                 f"al {fin.strftime('%d/%m')}. Ajusta cada día y el plan "
                 "se recalculará con este horario."
             ),
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=MUTED,
             bg=CARD,
             wraplength=420,
@@ -839,7 +938,7 @@ class ConquerPlanner:
             tk.Label(
                 celda,
                 text=dia,
-                font=("Helvetica", 9, "bold"),
+                font=(FONT_FAMILY, 9, "bold"),
                 fg=TEXT,
                 bg=CARD,
             ).pack(anchor="w")
@@ -934,9 +1033,9 @@ class ConquerPlanner:
         color = SUCCESS if margen >= 20 else WARNING if margen >= 0 else DANGER
         diagnostico = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=22, pady=20)
         diagnostico.pack(fill="x", pady=18)
-        tk.Label(diagnostico, text="DIAGNÓSTICO DE VIABILIDAD", font=("Helvetica", 10, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
-        tk.Label(diagnostico, text=("Ritmo viable" if margen >= 20 else "Margen estrecho" if margen >= 0 else "Riesgo de retraso"), font=("Helvetica", 23, "bold"), fg=color, bg=CARD).pack(anchor="w", pady=(5, 2))
-        tk.Label(diagnostico, text=f"Máster pendiente estimado: {master_restante:.1f} h · Capacidad restante: {capacidad:.1f} h · Margen: {margen:+.1f} h", font=("Helvetica", 12), fg=TEXT, bg=CARD).pack(anchor="w")
+        tk.Label(diagnostico, text="DIAGNÓSTICO DE VIABILIDAD", font=(FONT_FAMILY, 10, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(diagnostico, text=("Ritmo viable" if margen >= 20 else "Margen estrecho" if margen >= 0 else "Riesgo de retraso"), font=(FONT_FAMILY, 23, "bold"), fg=color, bg=CARD).pack(anchor="w", pady=(5, 2))
+        tk.Label(diagnostico, text=f"Máster pendiente estimado: {master_restante:.1f} h · Capacidad restante: {capacidad:.1f} h · Margen: {margen:+.1f} h", font=(FONT_FAMILY, 12), fg=TEXT, bg=CARD).pack(anchor="w")
         tk.Label(
             diagnostico,
             text=(
@@ -944,19 +1043,19 @@ class ConquerPlanner:
                 f"Disponibilidad configurada: {ritmo_disponible:.1f} h/semana · "
                 f"Quedan {semanas} semanas."
             ),
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=MUTED,
             bg=CARD,
         ).pack(anchor="w", pady=(6, 0))
 
-        tk.Label(self.contenido, text="Siguiente acción", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(5, 10))
+        tk.Label(self.contenido, text="Siguiente acción", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(5, 10))
         self._mostrar_recomendacion(self.contenido)
 
         carga = calcular_carga_pendiente(CATALOGO, self.planificacion)
         tk.Label(
             self.contenido,
             text="Carga académica pendiente",
-            font=("Helvetica", 18, "bold"),
+            font=(FONT_FAMILY, 18, "bold"),
             fg=TEXT,
             bg=BG,
         ).pack(anchor="w", pady=(22, 8))
@@ -970,7 +1069,7 @@ class ConquerPlanner:
                 resumen_carga
                 or "No quedan unidades pendientes en el temario."
             ),
-            font=("Helvetica", 11),
+            font=(FONT_FAMILY, 11),
             fg=MUTED,
             bg=BG,
             wraplength=900,
@@ -1000,9 +1099,9 @@ class ConquerPlanner:
             nivel = "MANTENIMIENTO"
         frame = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=20, pady=18)
         frame.pack(fill="x")
-        tk.Label(frame, text=nivel, font=("Helvetica", 9, "bold"), fg=ACCENT_DARK, bg=SOFT_TEAL, padx=8, pady=4).pack(anchor="w")
-        tk.Label(frame, text=titulo_accion, font=("Helvetica", 17, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(10, 2))
-        tk.Label(frame, text=detalle, font=("Helvetica", 12), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(frame, text=nivel, font=(FONT_FAMILY, 9, "bold"), fg=ACCENT_DARK, bg=SOFT_TEAL, padx=8, pady=4).pack(anchor="w")
+        tk.Label(frame, text=titulo_accion, font=(FONT_FAMILY, 17, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(10, 2))
+        tk.Label(frame, text=detalle, font=(FONT_FAMILY, 12), fg=MUTED, bg=CARD).pack(anchor="w")
 
     def mostrar_plan_hoy(self):
         limpiar(self.contenido)
@@ -1023,13 +1122,13 @@ class ConquerPlanner:
 
         resumen = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=22, pady=20)
         resumen.pack(fill="x", pady=(0, 16))
-        tk.Label(resumen, text=f"{restantes:.1f} h", font=("Helvetica", 32, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w")
-        tk.Label(resumen, text=f"de {horas:.1f} h disponibles hoy · {hechas:.1f} h ya registradas", font=("Helvetica", 11), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(resumen, text=f"{restantes:.1f} h", font=(FONT_FAMILY, 32, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w")
+        tk.Label(resumen, text=f"de {horas:.1f} h disponibles hoy · {hechas:.1f} h ya registradas", font=(FONT_FAMILY, 11), fg=MUTED, bg=CARD).pack(anchor="w")
 
         tk.Label(
             self.contenido,
             text="Agenda de hoy",
-            font=("Helvetica", 18, "bold"),
+            font=(FONT_FAMILY, 18, "bold"),
             fg=TEXT,
             bg=BG,
         ).pack(anchor="w", pady=(8, 8))
@@ -1040,9 +1139,9 @@ class ConquerPlanner:
                 elif asignacion["categoria"] == "Máster":
                     color = ACCENT
                 elif asignacion["categoria"] == "Inglés":
-                    color = "#2563eb"
+                    color = "#60747b"
                 elif asignacion["categoria"] == "Tarea":
-                    color = "#7c3aed"
+                    color = ACCENT_DARK
                 else:
                     color = WARNING
                 self._fila_plan(
@@ -1058,7 +1157,7 @@ class ConquerPlanner:
             tk.Label(
                 self.contenido,
                 text="La fecha objetivo ya ha pasado. Actualízala en Configuración para generar una nueva planificación.",
-                font=("Helvetica", 11),
+                font=(FONT_FAMILY, 11),
                 fg=DANGER,
                 bg=BG,
                 wraplength=850,
@@ -1068,7 +1167,7 @@ class ConquerPlanner:
             tk.Label(
                 self.contenido,
                 text="Ya has utilizado las horas disponibles de hoy.",
-                font=("Helvetica", 11),
+                font=(FONT_FAMILY, 11),
                 fg=MUTED,
                 bg=BG,
             ).pack(anchor="w", pady=8)
@@ -1076,18 +1175,18 @@ class ConquerPlanner:
             tk.Label(
                 self.contenido,
                 text="No queda trabajo pendiente en el temario desbloqueado. Puedes registrar repaso, tutorías o trabajo del TFM.",
-                font=("Helvetica", 11),
+                font=(FONT_FAMILY, 11),
                 fg=MUTED,
                 bg=BG,
                 wraplength=850,
                 justify="left",
             ).pack(anchor="w", pady=8)
 
-        tk.Label(self.contenido, text="Cómo se prioriza", font=("Helvetica", 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
+        tk.Label(self.contenido, text="Cómo se prioriza", font=(FONT_FAMILY, 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
         tk.Label(
             self.contenido,
             text="Las tareas manuales pendientes se programan primero, por prioridad Alta → Media → Baja. Cada una usa la estimación por tarea de Configuración; el tiempo restante se dedica al temario. Se mantienen la sesión semanal de Google Antigravity los miércoles, el inglés cuando cabe y los bonus después del contenido obligatorio.",
-            font=("Helvetica", 11),
+            font=(FONT_FAMILY, 11),
             fg=MUTED,
             bg=BG,
             wraplength=850,
@@ -1097,13 +1196,13 @@ class ConquerPlanner:
     def _fila_plan(self, parent, numero, categoria, nombre, detalle, horas, color):
         frame = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=16, pady=14)
         frame.pack(fill="x", pady=5)
-        tk.Label(frame, text=numero, font=("Helvetica", 12, "bold"), fg="#ffffff", bg=color, width=3, pady=4).pack(side="left", padx=(0, 14))
+        tk.Label(frame, text=numero, font=(FONT_FAMILY, 12, "bold"), fg="#ffffff", bg=color, width=3, pady=4).pack(side="left", padx=(0, 14))
         centro = tk.Frame(frame, bg=CARD)
         centro.pack(side="left", fill="x", expand=True)
-        tk.Label(centro, text=categoria.upper(), font=("Helvetica", 9, "bold"), fg=color, bg=CARD).pack(anchor="w")
-        tk.Label(centro, text=nombre, font=("Helvetica", 14, "bold"), fg=TEXT, bg=CARD).pack(anchor="w")
-        tk.Label(centro, text=detalle, font=("Helvetica", 10), fg=MUTED, bg=CARD).pack(anchor="w")
-        tk.Label(frame, text=f"{horas:.1f} h", font=("Helvetica", 16, "bold"), fg=TEXT, bg=CARD).pack(side="right")
+        tk.Label(centro, text=categoria.upper(), font=(FONT_FAMILY, 9, "bold"), fg=color, bg=CARD).pack(anchor="w")
+        tk.Label(centro, text=nombre, font=(FONT_FAMILY, 14, "bold"), fg=TEXT, bg=CARD).pack(anchor="w")
+        tk.Label(centro, text=detalle, font=(FONT_FAMILY, 10), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(frame, text=f"{horas:.1f} h", font=(FONT_FAMILY, 16, "bold"), fg=TEXT, bg=CARD).pack(side="right")
 
     def mostrar_tareas(self):
         limpiar(self.contenido)
@@ -1115,7 +1214,7 @@ class ConquerPlanner:
 
         form = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=18)
         form.pack(fill="x", pady=(0, 16))
-        tk.Label(form, text="Nueva tarea personal", font=("Helvetica", 16, "bold"), fg=TEXT, bg=CARD).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 12))
+        tk.Label(form, text="Nueva tarea personal", font=(FONT_FAMILY, 16, "bold"), fg=TEXT, bg=CARD).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 12))
         nombre = ttk.Entry(form)
         nombre.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(0, 8))
         nombre.insert(0, "")
@@ -1125,19 +1224,19 @@ class ConquerPlanner:
         prioridad = ttk.Combobox(form, values=("Alta", "Media", "Baja"), state="readonly", width=10)
         prioridad.set("Media")
         prioridad.grid(row=1, column=3, padx=(8, 0))
-        tk.Label(form, text="Tarea", font=("Helvetica", 9), fg=MUTED, bg=CARD).grid(row=2, column=0, sticky="w", pady=(4, 0))
-        tk.Label(form, text="Categoría", font=("Helvetica", 9), fg=MUTED, bg=CARD).grid(row=2, column=2, sticky="w", padx=8, pady=(4, 0))
+        tk.Label(form, text="Tarea", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).grid(row=2, column=0, sticky="w", pady=(4, 0))
+        tk.Label(form, text="Categoría", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).grid(row=2, column=2, sticky="w", padx=8, pady=(4, 0))
         boton(form, "Añadir", lambda: self._crear_tarea(nombre, categoria, prioridad), True).grid(row=1, column=4, padx=(12, 0))
         for c in range(3):
             form.columnconfigure(c, weight=1)
 
         pendientes = [t for t in tareas if not t.get("completada")]
         completadas = [t for t in tareas if t.get("completada")]
-        tk.Label(self.contenido, text=f"Pendientes ({len(pendientes)})", font=("Helvetica", 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(4, 8))
+        tk.Label(self.contenido, text=f"Pendientes ({len(pendientes)})", font=(FONT_FAMILY, 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(4, 8))
         for i, tarea in enumerate(pendientes):
             self._fila_tarea(tarea, tareas.index(tarea))
         if completadas:
-            tk.Label(self.contenido, text=f"Completadas ({len(completadas)})", font=("Helvetica", 17, "bold"), fg=MUTED, bg=BG).pack(anchor="w", pady=(22, 8))
+            tk.Label(self.contenido, text=f"Completadas ({len(completadas)})", font=(FONT_FAMILY, 17, "bold"), fg=MUTED, bg=BG).pack(anchor="w", pady=(22, 8))
             for tarea in completadas:
                 self._fila_tarea(tarea, tareas.index(tarea))
 
@@ -1195,8 +1294,8 @@ class ConquerPlanner:
         color = SUCCESS if tarea.get("completada") else TEXT
         centro = tk.Frame(frame, bg=CARD)
         centro.pack(side="left", fill="x", expand=True)
-        tk.Label(centro, text=f"{estado}  {tarea.get('nombre', '')}", font=("Helvetica", 12, "bold"), fg=color, bg=CARD, anchor="w").pack(anchor="w")
-        tk.Label(centro, text=f"{tarea.get('categoria', 'General')} · prioridad {tarea.get('prioridad', 'Media')}", font=("Helvetica", 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 0))
+        tk.Label(centro, text=f"{estado}  {tarea.get('nombre', '')}", font=(FONT_FAMILY, 12, "bold"), fg=color, bg=CARD, anchor="w").pack(anchor="w")
+        tk.Label(centro, text=f"{tarea.get('categoria', 'General')} · prioridad {tarea.get('prioridad', 'Media')}", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 0))
         if not tarea.get("completada"):
             boton(frame, "Completar", lambda i=indice: self._completar_tarea(i), True).pack(side="right", padx=3)
         boton(frame, "Editar", lambda i=indice: self._editar_tarea(i)).pack(side="right", padx=3)
@@ -1231,7 +1330,7 @@ class ConquerPlanner:
         ventana.configure(bg=BG)
         marco = tk.Frame(ventana, bg=CARD, padx=22, pady=22, highlightbackground=BORDER, highlightthickness=1)
         marco.pack(fill="both", expand=True, padx=18, pady=18)
-        tk.Label(marco, text="Editar tarea", font=("Helvetica", 18, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(0, 14))
+        tk.Label(marco, text="Editar tarea", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(0, 14))
         nombre = ttk.Entry(marco)
         nombre.insert(0, tarea.get("nombre", ""))
         nombre.pack(fill="x", pady=4)
@@ -1267,9 +1366,9 @@ class ConquerPlanner:
         )
         apuntes_antigravity = self.planificacion["detalle_modulo"]["Google Antigravity"]["apuntes"]
         detalle_html = self.planificacion["detalle_modulo"]["HTML"]
-        aviso = tk.Frame(self.contenido, bg=SOFT_TEAL, highlightbackground="#99f6e4", highlightthickness=1, padx=18, pady=14)
+        aviso = tk.Frame(self.contenido, bg=SOFT_TEAL, highlightbackground="#b5e7e4", highlightthickness=1, padx=18, pady=14)
         aviso.pack(fill="x", pady=(0, 18))
-        tk.Label(aviso, text="ESTADO ACTUAL", font=("Helvetica", 9, "bold"), fg=ACCENT_DARK, bg=SOFT_TEAL).pack(anchor="w")
+        tk.Label(aviso, text="ESTADO ACTUAL", font=(FONT_FAMILY, 9, "bold"), fg=ACCENT_DARK, bg=SOFT_TEAL).pack(anchor="w")
         unidad_12 = "Unidad 12 completada" if clases_ingles >= 41 else "Unidad 12 pendiente"
         tk.Label(
             aviso,
@@ -1280,7 +1379,7 @@ class ConquerPlanner:
                 f"HTML: tema 1 {detalle_html['tema_1']}/7, "
                 f"tema 2 {detalle_html['tema_2']}/6."
             ),
-            font=("Helvetica", 11, "bold"),
+            font=(FONT_FAMILY, 11, "bold"),
             fg=TEXT,
             bg=SOFT_TEAL,
             wraplength=900,
@@ -1290,7 +1389,7 @@ class ConquerPlanner:
         for bloque, modulos in CATALOGO.items():
             cab = tk.Frame(self.contenido, bg=SIDEBAR, padx=15, pady=9)
             cab.pack(fill="x", pady=(12, 5))
-            tk.Label(cab, text=bloque, font=("Helvetica", 13, "bold"), fg="#ffffff", bg=SIDEBAR).pack(anchor="w")
+            tk.Label(cab, text=bloque, font=(FONT_FAMILY, 13, "bold"), fg="#ffffff", bg=SIDEBAR).pack(anchor="w")
             for nombre, datos in modulos.items():
                 self._fila_modulo(bloque, nombre, datos)
 
@@ -1304,9 +1403,9 @@ class ConquerPlanner:
         color = SUCCESS if estado == "Completado" else ACCENT if estado == "En curso" else MUTED
         top = tk.Frame(frame, bg=CARD)
         top.pack(fill="x")
-        tk.Label(top, text=nombre, font=("Helvetica", 12, "bold"), fg=TEXT, bg=CARD).pack(side="left")
-        tk.Label(top, text=f"{estado} · {progreso:.0f}%", font=("Helvetica", 9, "bold"), fg=color, bg=CARD).pack(side="right")
-        tk.Label(frame, text=f"{datos.get('clases', 0)} clases · {datos.get('tareas', 0)} tareas · {datos.get('evaluaciones', 0)} evaluaciones", font=("Helvetica", 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 7))
+        tk.Label(top, text=nombre, font=(FONT_FAMILY, 12, "bold"), fg=TEXT, bg=CARD).pack(side="left")
+        tk.Label(top, text=f"{estado} · {progreso:.0f}%", font=(FONT_FAMILY, 9, "bold"), fg=color, bg=CARD).pack(side="right")
+        tk.Label(frame, text=f"{datos.get('clases', 0)} clases · {datos.get('tareas', 0)} tareas · {datos.get('evaluaciones', 0)} evaluaciones", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 7))
         if nombre == "Google Antigravity":
             apuntes = self.planificacion["detalle_modulo"]["Google Antigravity"]["apuntes"]
             clases = _entero_no_negativo(guardado.get("clases", 0))
@@ -1314,13 +1413,13 @@ class ConquerPlanner:
             tk.Label(
                 frame,
                 text=f"Clases: {clases}/10 · apuntes: {apuntes}/10 · {estado_apuntes}",
-                font=("Helvetica", 9, "bold"),
+                font=(FONT_FAMILY, 9, "bold"),
                 fg=WARNING if apuntes < 10 or clases < 10 else SUCCESS,
                 bg=CARD,
             ).pack(anchor="w", pady=(0, 7))
         if nombre == "HTML":
             detalle = self.planificacion["detalle_modulo"]["HTML"]
-            tk.Label(frame, text=f"Tema 1: {detalle.get('tema_1', 7)}/7 · Tema 2: {detalle.get('tema_2', 0)}/6", font=("Helvetica", 9, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w", pady=(0, 7))
+            tk.Label(frame, text=f"Tema 1: {detalle.get('tema_1', 7)}/7 · Tema 2: {detalle.get('tema_2', 0)}/6", font=(FONT_FAMILY, 9, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w", pady=(0, 7))
         barra = ttk.Progressbar(frame, style="Horizontal.TProgressbar", maximum=100, value=progreso)
         barra.pack(fill="x", pady=(0, 10))
 
@@ -1333,7 +1432,7 @@ class ConquerPlanner:
                 continue
             celda = tk.Frame(controles, bg=CARD)
             celda.pack(side="left", padx=(0, 16))
-            tk.Label(celda, text=etiqueta, font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+            tk.Label(celda, text=etiqueta, font=(FONT_FAMILY, 8), fg=MUTED, bg=CARD).pack(anchor="w")
             entrada = ttk.Entry(celda, width=7)
             entrada.insert(0, str(guardado.get(campo, 0)))
             entrada.pack()
@@ -1345,7 +1444,7 @@ class ConquerPlanner:
             for campo, etiqueta, maximo in (("tema_1", "Tema 1 / 7", 7), ("tema_2", "Tema 2 / 6", 6)):
                 celda = tk.Frame(detalle_frame, bg=CARD)
                 celda.pack(side="left", padx=(0, 16))
-                tk.Label(celda, text=etiqueta, font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+                tk.Label(celda, text=etiqueta, font=(FONT_FAMILY, 8), fg=MUTED, bg=CARD).pack(anchor="w")
                 entrada = ttk.Entry(celda, width=7)
                 entrada.insert(0, str(detalle.get(campo, 0)))
                 entrada.pack()
@@ -1354,7 +1453,7 @@ class ConquerPlanner:
             detalle = self.planificacion.setdefault("detalle_modulo", {}).setdefault("Google Antigravity", {"apuntes": 6})
             celda = tk.Frame(frame, bg=CARD)
             celda.pack(anchor="w", pady=(8, 0))
-            tk.Label(celda, text="Apuntes hechos / 10", font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
+            tk.Label(celda, text="Apuntes hechos / 10", font=(FONT_FAMILY, 8), fg=MUTED, bg=CARD).pack(anchor="w")
             entrada = ttk.Entry(celda, width=7)
             entrada.insert(0, str(detalle.get("apuntes", 6)))
             entrada.pack()
@@ -1365,7 +1464,7 @@ class ConquerPlanner:
             tk.Label(
                 acciones,
                 text="Clases y apuntes semanales fijos",
-                font=("Helvetica", 9),
+                font=(FONT_FAMILY, 9),
                 fg=MUTED,
                 bg=CARD,
             ).pack(side="left")
@@ -1399,14 +1498,14 @@ class ConquerPlanner:
         tk.Label(
             marco,
             text=f"Editar sección · {nombre}",
-            font=("Helvetica", 17, "bold"),
+            font=(FONT_FAMILY, 17, "bold"),
             fg=TEXT,
             bg=CARD,
         ).pack(anchor="w", pady=(0, 6))
         tk.Label(
             marco,
             text=bloque,
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=MUTED,
             bg=CARD,
         ).pack(anchor="w", pady=(0, 14))
@@ -1420,7 +1519,7 @@ class ConquerPlanner:
             tk.Label(
                 marco,
                 text=etiqueta,
-                font=("Helvetica", 10, "bold"),
+                font=(FONT_FAMILY, 10, "bold"),
                 fg=TEXT,
                 bg=CARD,
             ).pack(anchor="w", pady=(7, 2))
@@ -1442,7 +1541,7 @@ class ConquerPlanner:
             marco,
             text="Marcar como completada si no tiene actividades",
             variable=completada,
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=TEXT,
             bg=CARD,
             activebackground=CARD,
@@ -1558,9 +1657,9 @@ class ConquerPlanner:
         semanas = max(1, (dias_restantes(self.planificacion) + 6) // 7)
         necesario = restante / semanas
         semanal = obtener_horas_disponibles_semana(self.planificacion)
-        tk.Label(ritmo, text="RITMO NECESARIO", font=("Helvetica", 9, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
-        tk.Label(ritmo, text=f"{necesario:.1f} h/semana de máster", font=("Helvetica", 21, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(4, 2))
-        tk.Label(ritmo, text=f"Disponibilidad semanal configurada: {semanal:.1f} h · {semanas} semanas aproximadas.", font=("Helvetica", 10), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(ritmo, text="RITMO NECESARIO", font=(FONT_FAMILY, 9, "bold"), fg=MUTED, bg=CARD).pack(anchor="w")
+        tk.Label(ritmo, text=f"{necesario:.1f} h/semana de máster", font=(FONT_FAMILY, 21, "bold"), fg=TEXT, bg=CARD).pack(anchor="w", pady=(4, 2))
+        tk.Label(ritmo, text=f"Disponibilidad semanal configurada: {semanal:.1f} h · {semanas} semanas aproximadas.", font=(FONT_FAMILY, 10), fg=MUTED, bg=CARD).pack(anchor="w")
 
         carga_proyectada = sum(
             calcular_carga_pendiente(
@@ -1591,7 +1690,7 @@ class ConquerPlanner:
         estado_plan = tk.Frame(
             self.contenido,
             bg=SOFT_RED if fuera_objetivo > 0 else SOFT_TEAL,
-            highlightbackground="#fecaca" if fuera_objetivo > 0 else "#99f6e4",
+            highlightbackground="#eccaca" if fuera_objetivo > 0 else "#b5e7e4",
             highlightthickness=1,
             padx=16,
             pady=12,
@@ -1614,31 +1713,31 @@ class ConquerPlanner:
         tk.Label(
             estado_plan,
             text=estado_texto,
-            font=("Helvetica", 10, "bold"),
+            font=(FONT_FAMILY, 10, "bold"),
             fg=estado_color,
             bg=estado_plan["bg"],
             wraplength=900,
             justify="left",
         ).pack(anchor="w")
 
-        tk.Label(self.contenido, text="Disponibilidad semanal", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(5, 8))
+        tk.Label(self.contenido, text="Disponibilidad semanal", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(5, 8))
         disponibilidad = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=16, pady=16)
         disponibilidad.pack(fill="x")
         entradas = {}
         for dia in DIAS_SEMANA:
             celda = tk.Frame(disponibilidad, bg=CARD)
             celda.pack(side="left", fill="x", expand=True, padx=3)
-            tk.Label(celda, text=dia[:3], font=("Helvetica", 9, "bold"), fg=MUTED, bg=CARD).pack()
+            tk.Label(celda, text=dia[:3], font=(FONT_FAMILY, 9, "bold"), fg=MUTED, bg=CARD).pack()
             entrada = ttk.Entry(celda, width=7, justify="center")
             entrada.insert(0, str(self.planificacion.get("disponibilidad", {}).get(dia, 0)))
             entrada.pack(pady=(5, 0))
             entradas[dia] = entrada
         boton(disponibilidad, "Guardar disponibilidad", lambda: self._guardar_disponibilidad(entradas), True).pack(anchor="e", pady=(12, 0))
 
-        tk.Label(self.contenido, text="Registro de estudio", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(24, 8))
+        tk.Label(self.contenido, text="Registro de estudio", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(24, 8))
         self._registro_estudio()
 
-        tk.Label(self.contenido, text="Plan de la semana", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(24, 8))
+        tk.Label(self.contenido, text="Plan de la semana", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(24, 8))
         self._mostrar_plan_semana()
 
     def _guardar_disponibilidad(self, entradas):
@@ -1681,7 +1780,7 @@ class ConquerPlanner:
             tk.Label(
                 celda,
                 text=etiqueta,
-                font=("Helvetica", 10, "bold"),
+                font=(FONT_FAMILY, 10, "bold"),
                 fg=TEXT,
                 bg=CARD,
             ).pack(anchor="w", pady=(0, 3))
@@ -1795,7 +1894,7 @@ class ConquerPlanner:
                     f"{actividad.get('actividad', '')} · "
                     f"{actividad.get('modulo', '')}"
                 )
-                tk.Label(fila, text=texto, font=("Helvetica", 10), fg=TEXT, bg=CARD, anchor="w").pack(side="left", fill="x", expand=True)
+                tk.Label(fila, text=texto, font=(FONT_FAMILY, 10), fg=TEXT, bg=CARD, anchor="w").pack(side="left", fill="x", expand=True)
                 boton(fila, "Eliminar", lambda i=i: self._eliminar_sesion(i)).pack(side="right")
 
     def _actualizar_estimacion_sesion(self, campos):
@@ -2021,10 +2120,10 @@ class ConquerPlanner:
                 texto = f"Real: {reales:.1f} h · {texto}"
             fila = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=12, pady=10)
             fila.pack(fill="x", pady=2)
-            tk.Label(fila, text=f"{dia[:3]} {fecha.strftime('%d/%m')}", width=12, anchor="w", font=("Helvetica", 10, "bold"), fg=TEXT, bg=CARD).pack(side="left")
+            tk.Label(fila, text=f"{dia[:3]} {fecha.strftime('%d/%m')}", width=12, anchor="w", font=(FONT_FAMILY, 10, "bold"), fg=TEXT, bg=CARD).pack(side="left")
             horas_planificadas = sum(item["horas"] for item in asignaciones)
-            tk.Label(fila, text=f"{horas_planificadas:.1f}/{horas:.1f} h", width=9, anchor="w", font=("Helvetica", 10, "bold"), fg=ACCENT, bg=CARD).pack(side="left")
-            tk.Label(fila, text=texto, anchor="w", font=("Helvetica", 10), fg=MUTED, bg=CARD).pack(side="left", fill="x", expand=True)
+            tk.Label(fila, text=f"{horas_planificadas:.1f}/{horas:.1f} h", width=9, anchor="w", font=(FONT_FAMILY, 10, "bold"), fg=ACCENT, bg=CARD).pack(side="left")
+            tk.Label(fila, text=texto, anchor="w", font=(FONT_FAMILY, 10), fg=MUTED, bg=CARD).pack(side="left", fill="x", expand=True)
 
     def _texto_para_horas(self, bolsas, horas):
         restante = horas
@@ -2058,7 +2157,7 @@ class ConquerPlanner:
             f.grid(row=0, column=i, padx=(0 if i == 0 else 6, 0), sticky="nsew")
             f.configure(height=120)
 
-        tk.Label(self.contenido, text="Hitos actuales", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
+        tk.Label(self.contenido, text="Hitos actuales", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
         clases_ingles = self.planificacion["clases_ingles_completadas"]
         progreso_antigravity = self.planificacion["progreso_tema"].get(
             "MÁSTER · PREWORK|Google Antigravity", {}
@@ -2089,17 +2188,17 @@ class ConquerPlanner:
         for nombre, detalle, color in hitos:
             fila = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=14, pady=11)
             fila.pack(fill="x", pady=3)
-            tk.Label(fila, text="●", font=("Helvetica", 12), fg=color, bg=CARD).pack(side="left", padx=(0, 9))
-            tk.Label(fila, text=nombre, font=("Helvetica", 11, "bold"), fg=TEXT, bg=CARD, width=22, anchor="w").pack(side="left")
-            tk.Label(fila, text=detalle, font=("Helvetica", 10), fg=MUTED, bg=CARD, anchor="w").pack(side="left", fill="x", expand=True)
+            tk.Label(fila, text="●", font=(FONT_FAMILY, 12), fg=color, bg=CARD).pack(side="left", padx=(0, 9))
+            tk.Label(fila, text=nombre, font=(FONT_FAMILY, 11, "bold"), fg=TEXT, bg=CARD, width=22, anchor="w").pack(side="left")
+            tk.Label(fila, text=detalle, font=(FONT_FAMILY, 10), fg=MUTED, bg=CARD, anchor="w").pack(side="left", fill="x", expand=True)
 
         objetivo = obtener_fecha_objetivo(self.planificacion)
         capacidad = obtener_capacidad_hasta_objetivo(self.planificacion)
         restante = horas_master_restantes(self.planificacion)
-        tk.Label(self.contenido, text="Viabilidad hasta el objetivo", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
+        tk.Label(self.contenido, text="Viabilidad hasta el objetivo", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
         frame = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=18)
         frame.pack(fill="x")
-        tk.Label(frame, text=f"Te quedan {restante:.1f} h estimadas de máster hasta el {objetivo.strftime('%d/%m/%Y')}. La capacidad disponible configurada es de {capacidad:.1f} h.", font=("Helvetica", 12), fg=TEXT, bg=CARD, wraplength=900, justify="left").pack(anchor="w")
+        tk.Label(frame, text=f"Te quedan {restante:.1f} h estimadas de máster hasta el {objetivo.strftime('%d/%m/%Y')}. La capacidad disponible configurada es de {capacidad:.1f} h.", font=(FONT_FAMILY, 12), fg=TEXT, bg=CARD, wraplength=900, justify="left").pack(anchor="w")
 
     def mostrar_configuracion(self):
         limpiar(self.contenido)
@@ -2124,17 +2223,17 @@ class ConquerPlanner:
             ("Estimación por TFM (h)", "estimacion_tfm", str(self.planificacion["estimaciones"]["tfm"])),
         ]
         for fila, (etiqueta, clave, valor) in enumerate(definiciones):
-            tk.Label(frame, text=etiqueta, font=("Helvetica", 10, "bold"), fg=TEXT, bg=CARD).grid(row=fila, column=0, sticky="w", pady=7)
+            tk.Label(frame, text=etiqueta, font=(FONT_FAMILY, 10, "bold"), fg=TEXT, bg=CARD).grid(row=fila, column=0, sticky="w", pady=7)
             entrada = ttk.Entry(frame, width=20)
             entrada.insert(0, valor)
             entrada.grid(row=fila, column=1, sticky="w", padx=18, pady=7)
             campos[clave] = entrada
         boton(frame, "Guardar configuración", lambda: self._guardar_configuracion(campos), True).grid(row=len(definiciones), column=1, sticky="w", pady=(12, 0))
 
-        info = tk.Frame(self.contenido, bg=SOFT_AMBER, highlightbackground="#fde68a", highlightthickness=1, padx=18, pady=15)
+        info = tk.Frame(self.contenido, bg=SOFT_AMBER, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=15)
         info.pack(fill="x", pady=18)
-        tk.Label(info, text="Cómo se genera la planificación", font=("Helvetica", 13, "bold"), fg=TEXT, bg=SOFT_AMBER).pack(anchor="w")
-        tk.Label(info, text="• Cada tipo de actividad tiene su estimación editable. Al registrar una sesión, el campo de horas se rellena con la estimación del tipo elegido.\n• Los tiempos reales de las últimas cinco sesiones del mismo módulo y tipo ajustan automáticamente la previsión de las actividades del temario.\n• El plan asigna primero las tareas manuales Alta → Media → Baja y reserva el tiempo disponible restante para el temario hasta la fecha objetivo.\n• El máster ocupa primero el tiempo académico; mientras siga pendiente, se planifica además una actividad diaria de inglés si cabe.\n• Registrar una clase, tarea o evaluación actualiza el progreso correspondiente; una clase de HTML también avanza su siguiente lección y un registro de TFM actualiza su tarea.\n• Antigravity se planifica los miércoles con la disponibilidad restante. Los bonus se planifican después del contenido obligatorio.\n• El porcentaje global del máster es una estimación manual; se recalcula el tiempo pendiente al cambiarlo.", font=("Helvetica", 10), fg=TEXT, bg=SOFT_AMBER, justify="left").pack(anchor="w", pady=(7, 0))
+        tk.Label(info, text="Cómo se genera la planificación", font=(FONT_FAMILY, 13, "bold"), fg=TEXT, bg=SOFT_AMBER).pack(anchor="w")
+        tk.Label(info, text="• Cada tipo de actividad tiene su estimación editable. Al registrar una sesión, el campo de horas se rellena con la estimación del tipo elegido.\n• Los tiempos reales de las últimas cinco sesiones del mismo módulo y tipo ajustan automáticamente la previsión de las actividades del temario.\n• El plan asigna primero las tareas manuales Alta → Media → Baja y reserva el tiempo disponible restante para el temario hasta la fecha objetivo.\n• El máster ocupa primero el tiempo académico; mientras siga pendiente, se planifica además una actividad diaria de inglés si cabe.\n• Registrar una clase, tarea o evaluación actualiza el progreso correspondiente; una clase de HTML también avanza su siguiente lección y un registro de TFM actualiza su tarea.\n• Antigravity se planifica los miércoles con la disponibilidad restante. Los bonus se planifican después del contenido obligatorio.\n• El porcentaje global del máster es una estimación manual; se recalcula el tiempo pendiente al cambiarlo.", font=(FONT_FAMILY, 10), fg=TEXT, bg=SOFT_AMBER, justify="left").pack(anchor="w", pady=(7, 0))
 
         self._mostrar_copias_seguridad()
 
@@ -2152,7 +2251,7 @@ class ConquerPlanner:
         tk.Label(
             marco,
             text="Copias de seguridad",
-            font=("Helvetica", 16, "bold"),
+            font=(FONT_FAMILY, 16, "bold"),
             fg=TEXT,
             bg=CARD,
         ).pack(anchor="w")
@@ -2163,7 +2262,7 @@ class ConquerPlanner:
                 "en la planificación, las tareas o el temario. Se conservan "
                 "las 30 más recientes en este Mac."
             ),
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=MUTED,
             bg=CARD,
             wraplength=850,
@@ -2173,7 +2272,7 @@ class ConquerPlanner:
             tk.Label(
                 marco,
                 text="Aún no hay copias. Se creará la primera al guardar un cambio.",
-                font=("Helvetica", 10),
+                font=(FONT_FAMILY, 10),
                 fg=MUTED,
                 bg=CARD,
             ).pack(anchor="w")
@@ -2321,7 +2420,7 @@ class ConquerPlanner:
             frame.grid(row=0, column=i, padx=6, sticky="nsew")
             frame.configure(height=120)
 
-        tk.Label(self.contenido, text="Horas por módulo", font=("Helvetica", 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(25, 10))
+        tk.Label(self.contenido, text="Horas por módulo", font=(FONT_FAMILY, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(25, 10))
 
         modulos = horas_por_modulo(actividades)
         if not modulos:
@@ -2339,8 +2438,8 @@ class ConquerPlanner:
                 pady=10,
             )
             fila.pack(fill="x", pady=3)
-            tk.Label(fila, text=nombre, font=("Helvetica", 11, "bold"), bg=CARD, fg=TEXT).pack(side="left")
-            tk.Label(fila, text=f"{horas:.1f} h", font=("Helvetica", 11), bg=CARD, fg=ACCENT).pack(side="right")
+            tk.Label(fila, text=nombre, font=(FONT_FAMILY, 11, "bold"), bg=CARD, fg=TEXT).pack(side="left")
+            tk.Label(fila, text=f"{horas:.1f} h", font=(FONT_FAMILY, 11), bg=CARD, fg=ACCENT).pack(side="right")
     def ejecutar(self):
         self.ventana.mainloop()
 

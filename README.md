@@ -21,7 +21,7 @@
 - Gestión manual de tareas: las pendientes se integran en la agenda diaria por prioridad Alta → Media → Baja, usando la estimación por tarea configurada.
 - Copias de seguridad automáticas de planificación, tareas y temario antes de cada guardado; conserva las 30 últimas y permite restaurarlas desde Configuración.
 - Configuración editable sin abrir VS Code.
-- Interfaz visual de fondo claro con navegación oscura y acentos turquesa.
+- Interfaz de fondo gris claro, navegación carbón, tarjetas blancas, turquesa accesible y tipografía Avenir Next uniforme.
 
 ## Qué ofrece cada sección
 

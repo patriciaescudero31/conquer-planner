@@ -10,13 +10,14 @@ MESES = (
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 )
 DIAS = ("L", "M", "X", "J", "V", "S", "D")
-BG = "#f8fafc"
+BG = "#f3f6f6"
 CARD = "#ffffff"
-TEXT = "#111827"
-MUTED = "#64748b"
-ACCENT = "#0d9488"
-BORDER = "#e2e8f0"
-ACCENT_DARK = "#0f766e"
+TEXT = "#182126"
+MUTED = "#68777d"
+ACCENT = "#087b7b"
+BORDER = "#e1e8e9"
+ACCENT_DARK = "#066565"
+FONT_FAMILY = "Avenir Next"
 
 
 def _boton_calendario(
@@ -30,23 +31,20 @@ def _boton_calendario(
     wraplength=None,
 ):
     normal = fondo or (ACCENT if principal else CARD)
-    hover = (
-        ACCENT_DARK
-        if principal
-        else "#ccfbf1"
-        if normal == CARD
-        else "#99f6e4"
-    )
+    hover = ACCENT_DARK if principal else "#e8f4f4"
     opciones = {
         "text": texto,
         "command": comando,
-        "font": ("Helvetica", 10, "bold"),
+        "font": (FONT_FAMILY, 10, "bold"),
         "fg": color_texto or ("#ffffff" if principal else TEXT),
         "bg": normal,
         "activeforeground": "#ffffff" if principal else TEXT,
         "activebackground": hover,
         "relief": "flat",
         "bd": 0,
+        "highlightthickness": 0 if principal else 1,
+        "highlightbackground": BORDER,
+        "highlightcolor": ACCENT,
         "cursor": "hand2",
     }
     if alto is not None:
@@ -87,7 +85,7 @@ class CalendarioAcademico:
         tk.Label(
             self.frame,
             text="El calendario combina el plan previsto con tus sesiones reales.",
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=MUTED,
             bg=BG,
         ).pack(anchor="w", pady=(0, 10))
@@ -101,7 +99,7 @@ class CalendarioAcademico:
         ).pack(side="left")
         self.titulo = tk.Label(
             cabecera,
-            font=("Helvetica", 18, "bold"),
+            font=(FONT_FAMILY, 18, "bold"),
             fg=TEXT,
             bg=BG,
         )
@@ -125,7 +123,7 @@ class CalendarioAcademico:
         tk.Label(
             self.agenda_frame,
             text="Plan completo hasta el objetivo",
-            font=("Helvetica", 18, "bold"),
+            font=(FONT_FAMILY, 18, "bold"),
             fg=TEXT,
             bg=BG,
         ).pack(anchor="w")
@@ -144,7 +142,7 @@ class CalendarioAcademico:
                 f"planificadas hasta "
                 f"{self.fecha_objetivo.strftime('%d/%m/%Y') if self.fecha_objetivo else 'el objetivo'}."
             ),
-            font=("Helvetica", 10),
+            font=(FONT_FAMILY, 10),
             fg=MUTED,
             bg=BG,
         ).pack(anchor="w", pady=(3, 10))
@@ -152,7 +150,7 @@ class CalendarioAcademico:
             tk.Label(
                 self.agenda_frame,
                 text="No hay actividades pendientes programadas con la disponibilidad actual.",
-                font=("Helvetica", 10),
+                font=(FONT_FAMILY, 10),
                 fg=MUTED,
                 bg=BG,
             ).pack(anchor="w")
@@ -177,8 +175,8 @@ class CalendarioAcademico:
         tabla.column("actividad", width=380, minwidth=180, stretch=True)
         tabla.column("horas", width=70, minwidth=60, stretch=False, anchor="e")
         tabla.tag_configure("master", foreground=ACCENT_DARK)
-        tabla.tag_configure("ingles", foreground="#2563eb")
-        tabla.tag_configure("bonus", foreground="#b45309")
+        tabla.tag_configure("ingles", foreground="#60747b")
+        tabla.tag_configure("bonus", foreground=MUTED)
         barra = ttk.Scrollbar(
             contenedor,
             orient="vertical",
@@ -242,7 +240,7 @@ class CalendarioAcademico:
             tk.Label(
                 self.grilla,
                 text=nombre_dia,
-                font=("Helvetica", 9, "bold"),
+                font=(FONT_FAMILY, 9, "bold"),
                 fg=MUTED,
                 bg=BG,
             ).grid(row=0, column=columna, sticky="nsew", padx=2, pady=3)
@@ -271,9 +269,9 @@ class CalendarioAcademico:
                 color_fondo = ACCENT if fecha == self.seleccionada else CARD
                 color_texto = "#ffffff" if fecha == self.seleccionada else TEXT
                 if fecha == date.today() and fecha != self.seleccionada:
-                    color_fondo = "#ccfbf1"
+                    color_fondo = "#e2f5f4"
                 if not en_periodo and fecha != date.today():
-                    color_texto = "#cbd5e1"
+                    color_texto = "#b9c3c5"
                 _boton_calendario(
                     self.grilla,
                     texto,
@@ -297,7 +295,7 @@ class CalendarioAcademico:
         tk.Label(
             self.detalle,
             text=f"Sesiones del {fecha_texto}",
-            font=("Helvetica", 12, "bold"),
+            font=(FONT_FAMILY, 12, "bold"),
             fg=TEXT,
             bg=CARD,
         ).pack(anchor="w")
@@ -307,7 +305,7 @@ class CalendarioAcademico:
             tk.Label(
                 self.detalle,
                 text="Plan previsto",
-                font=("Helvetica", 10, "bold"),
+                font=(FONT_FAMILY, 10, "bold"),
                 fg=ACCENT,
                 bg=CARD,
             ).pack(anchor="w", pady=(7, 0))
@@ -319,7 +317,7 @@ class CalendarioAcademico:
                         f"{asignacion.get('modulo', '')} · "
                         f"{', '.join(asignacion.get('detalles', []))}"
                     ),
-                    font=("Helvetica", 10),
+                    font=(FONT_FAMILY, 10),
                     fg=TEXT,
                     bg=CARD,
                     anchor="w",
@@ -328,7 +326,7 @@ class CalendarioAcademico:
             tk.Label(
                 self.detalle,
                 text="No hay sesiones reales registradas para este día.",
-                font=("Helvetica", 10),
+                font=(FONT_FAMILY, 10),
                 fg=MUTED,
                 bg=CARD,
             ).pack(anchor="w", pady=(5, 0))
@@ -343,7 +341,7 @@ class CalendarioAcademico:
             tk.Label(
                 self.detalle,
                 text=texto,
-                font=("Helvetica", 10),
+                font=(FONT_FAMILY, 10),
                 fg=TEXT,
                 bg=CARD,
                 anchor="w",

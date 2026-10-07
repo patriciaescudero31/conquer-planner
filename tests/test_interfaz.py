@@ -282,6 +282,41 @@ def test_contenedor_principal_se_muestra_en_la_ventana():
         ventana.destroy()
 
 
+def test_estilo_visual_aplica_tipografia_y_botones_legibles():
+    try:
+        ventana = tk.Tk()
+    except tk.TclError as error:
+        pytest.skip(f"Tk no está disponible: {error}")
+
+    try:
+        app = interfaz.ConquerPlanner.__new__(interfaz.ConquerPlanner)
+        app.ventana = ventana
+        app._configurar_estilos()
+        estilo = interfaz.ttk.Style(ventana)
+        fuente_titulo = estilo.lookup("Title.TLabel", "font")
+
+        assert interfaz.FONT_FAMILY in fuente_titulo
+        assert estilo.lookup("Treeview", "background") == interfaz.CARD
+
+        boton_principal = interfaz.boton(
+            ventana,
+            "Guardar",
+            lambda: None,
+            principal=True,
+        )
+        boton_secundario = interfaz.boton(
+            ventana,
+            "Cancelar",
+            lambda: None,
+        )
+        assert boton_principal.cget("bg") == interfaz.ACCENT
+        assert boton_principal.cget("activebackground") == interfaz.ACCENT_DARK
+        assert boton_secundario.cget("bg") == interfaz.CARD
+        assert int(boton_secundario.cget("highlightthickness")) == 1
+    finally:
+        ventana.destroy()
+
+
 def test_registro_de_clase_html_avanza_y_revertir_sesion_restablece_tema():
     app = interfaz.ConquerPlanner.__new__(interfaz.ConquerPlanner)
     app.planificacion = {
