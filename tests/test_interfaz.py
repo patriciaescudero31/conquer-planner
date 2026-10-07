@@ -4,10 +4,10 @@ from copy import deepcopy
 from datetime import date, timedelta
 
 import interfaz
-import interfaz_datos
-from calendario import CalendarioAcademico
-from estadisticas import horas_ultima_semana
-from planificador import _trabajo_modulo
+from conquer_planner.core.estadisticas import horas_ultima_semana
+from conquer_planner.core.planificador import _trabajo_modulo
+from conquer_planner.ui import interfaz_datos
+from conquer_planner.ui.calendario import CalendarioAcademico
 import pytest
 
 

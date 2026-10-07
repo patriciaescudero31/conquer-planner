@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from copias_seguridad import (
+from .copias_seguridad import (
     ErrorCopiaSeguridad,
     crear_copia_antes_de_guardar,
 )

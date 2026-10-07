@@ -3,9 +3,9 @@ import tkinter as tk
 from datetime import date, datetime, timedelta
 from tkinter import messagebox, ttk
 
-from interfaz_componentes import *
-from interfaz_datos import *
-from interfaz_datos import _entero_no_negativo
+from .interfaz_componentes import *
+from .interfaz_datos import *
+from .interfaz_datos import _entero_no_negativo
 
 
 class ShellMixin:

@@ -6,7 +6,7 @@ import shutil
 import tempfile
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 ARCHIVOS_DATOS = {
     "planificacion.json": BASE_DIR / "planificacion.json",
     "tareas.json": BASE_DIR / "tareas.json",

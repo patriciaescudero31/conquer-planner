@@ -1,6 +1,6 @@
 from datetime import date
 
-from planificador import (
+from conquer_planner.core.planificador import (
     _trabajo_modulo,
     calcular_carga_pendiente,
     generar_planificacion,

@@ -3,11 +3,11 @@ import tkinter as tk
 from datetime import date, datetime, timedelta
 from tkinter import messagebox, ttk
 
-from interfaz_componentes import *
-from interfaz_datos import *
-from interfaz_datos import _entero_no_negativo
-from tareas import cargar_tareas
-from planificador import calcular_carga_pendiente, generar_planificacion
+from .interfaz_componentes import *
+from .interfaz_datos import *
+from .interfaz_datos import _entero_no_negativo
+from ..core.tareas import cargar_tareas
+from ..core.planificador import calcular_carga_pendiente, generar_planificacion
 
 
 class InicioMixin:

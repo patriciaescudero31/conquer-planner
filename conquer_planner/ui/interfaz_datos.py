@@ -4,18 +4,18 @@ from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
 
-from copias_seguridad import (
+from ..core.copias_seguridad import (
     ErrorCopiaSeguridad,
     crear_copia_antes_de_guardar,
 )
-from planificador import (
+from ..core.planificador import (
     calcular_carga_pendiente,
     generar_planificacion,
     horas_registradas_por_fecha,
 )
-from utilidades import calcular_horas_hasta_objetivo
+from ..core.utilidades import calcular_horas_hasta_objetivo
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 ARCHIVO_TAREAS = BASE_DIR / "tareas.json"
 ARCHIVO_PLANIFICACION = BASE_DIR / "planificacion.json"
 ARCHIVO_TEMARIO = BASE_DIR / "temario.json"

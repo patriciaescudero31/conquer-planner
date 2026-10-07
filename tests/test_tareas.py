@@ -2,10 +2,13 @@ import json
 from datetime import datetime
 from unittest.mock import patch
 
-import tareas
-from copias_seguridad import ErrorCopiaSeguridad
-from tareas import cargar_tareas, guardar_tareas
-from utilidades import validar_fecha, calcular_horas_hasta_objetivo
+from conquer_planner.core import tareas
+from conquer_planner.core.copias_seguridad import ErrorCopiaSeguridad
+from conquer_planner.core.tareas import cargar_tareas, guardar_tareas
+from conquer_planner.core.utilidades import (
+    validar_fecha,
+    calcular_horas_hasta_objetivo,
+)
 
 
 def test_cargar_tareas_con_formato_antiguo(tmp_path):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from unittest.mock import patch
 
-from utilidades import (
+from conquer_planner.core.utilidades import (
     calcular_horas_hasta_objetivo,
     validar_fecha,
 )
@@ -29,7 +29,7 @@ def test_calcular_horas_hasta_objetivo():
 
     fecha_simulada = datetime(2026, 10, 1)
 
-    with patch("utilidades.datetime") as datetime_mock:
+    with patch("conquer_planner.core.utilidades.datetime") as datetime_mock:
         datetime_mock.now.return_value = fecha_simulada
         datetime_mock.strptime.side_effect = datetime.strptime
 
@@ -64,7 +64,7 @@ def test_calcular_horas_hasta_objetivo_si_ya_paso():
 
     fecha_simulada = datetime(2026, 10, 1)
 
-    with patch("utilidades.datetime") as datetime_mock:
+    with patch("conquer_planner.core.utilidades.datetime") as datetime_mock:
         datetime_mock.now.return_value = fecha_simulada
         datetime_mock.strptime.side_effect = datetime.strptime
 

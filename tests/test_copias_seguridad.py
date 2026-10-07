@@ -1,6 +1,6 @@
 import json
 
-import copias_seguridad
+from conquer_planner.core import copias_seguridad
 
 
 def _configurar_archivos(tmp_path, monkeypatch):

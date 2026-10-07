@@ -41,16 +41,12 @@ Flujo recomendado: revisa **Plan de hoy**, estudia, registra el tiempo y el tipo
 
 ## Organización de la interfaz
 
-La interfaz se divide por responsabilidades. `interfaz.py` conserva el punto de
-entrada y compone la ventana a partir de módulos especializados:
-
-- `interfaz_datos.py`: catálogo académico, carga/guardado y cálculos de progreso.
-- `interfaz_componentes.py`: paleta, estilos y componentes visuales reutilizables.
-- `interfaz_shell.py`: ventana principal, navegación y revisión semanal.
-- `interfaz_inicio.py`, `interfaz_tareas.py` y `interfaz_temario.py`: pantallas
-  de inicio, tareas y temario.
-- `interfaz_planificacion.py`: disponibilidad, registro de estudio y agenda.
-- `interfaz_otros.py`: progreso, configuración, copias, calendario y estadísticas.
+El código está organizado en `conquer_planner/`: `core/` contiene planificación,
+tareas, estadísticas, utilidades y copias de seguridad; `ui/` contiene la ventana,
+los componentes visuales y las pantallas. `main.py` e `interfaz.py` permanecen en
+la raíz como lanzadores compatibles. Los datos personales (`planificacion.json`,
+`tareas.json`, `temario.json` y `.copias_seguridad/`) también permanecen en la raíz
+y no se mueven al organizar el código.
 
 ## Requisitos
 
