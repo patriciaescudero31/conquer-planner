@@ -39,6 +39,19 @@
 
 Flujo recomendado: revisa **Plan de hoy**, estudia, registra el tiempo y el tipo de actividad en **Planificación** y deja que el progreso guardado recalcule la siguiente agenda. También puedes corregir el avance manualmente desde **Temario**.
 
+## Organización de la interfaz
+
+La interfaz se divide por responsabilidades. `interfaz.py` conserva el punto de
+entrada y compone la ventana a partir de módulos especializados:
+
+- `interfaz_datos.py`: catálogo académico, carga/guardado y cálculos de progreso.
+- `interfaz_componentes.py`: paleta, estilos y componentes visuales reutilizables.
+- `interfaz_shell.py`: ventana principal, navegación y revisión semanal.
+- `interfaz_inicio.py`, `interfaz_tareas.py` y `interfaz_temario.py`: pantallas
+  de inicio, tareas y temario.
+- `interfaz_planificacion.py`: disponibilidad, registro de estudio y agenda.
+- `interfaz_otros.py`: progreso, configuración, copias, calendario y estadísticas.
+
 ## Requisitos
 
 - Python 3

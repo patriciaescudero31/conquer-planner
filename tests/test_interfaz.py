@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import date, timedelta
 
 import interfaz
+import interfaz_datos
 from calendario import CalendarioAcademico
 from estadisticas import horas_ultima_semana
 from planificador import _trabajo_modulo
@@ -75,7 +76,7 @@ def test_cargar_planificacion_repara_campos_invalidos(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(interfaz, "ARCHIVO_PLANIFICACION", archivo)
+    monkeypatch.setattr(interfaz_datos, "ARCHIVO_PLANIFICACION", archivo)
 
     planificacion = interfaz.cargar_planificacion()
 
@@ -112,7 +113,7 @@ def test_catalogo_local_permite_definir_totales_y_estado_del_prework(
         json.dumps({"hitos": ["mantener"]}),
         encoding="utf-8",
     )
-    monkeypatch.setattr(interfaz, "ARCHIVO_TEMARIO", archivo)
+    monkeypatch.setattr(interfaz_datos, "ARCHIVO_TEMARIO", archivo)
 
     assert interfaz.guardar_catalogo_local(
         "MÁSTER · PREWORK",
@@ -158,7 +159,7 @@ def test_catalogo_local_ignora_totales_invalidos(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(interfaz, "ARCHIVO_TEMARIO", archivo)
+    monkeypatch.setattr(interfaz_datos, "ARCHIVO_TEMARIO", archivo)
 
     assert interfaz.cargar_catalogo_local() == {
         "MÁSTER · PREWORK": {
@@ -189,12 +190,16 @@ def test_aplicar_catalogo_local_actualiza_totales_y_estado(
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(interfaz, "ARCHIVO_TEMARIO", archivo)
-    monkeypatch.setattr(interfaz, "CATALOGO", deepcopy(interfaz.CATALOGO))
+    monkeypatch.setattr(interfaz_datos, "ARCHIVO_TEMARIO", archivo)
+    monkeypatch.setattr(
+        interfaz_datos,
+        "CATALOGO",
+        deepcopy(interfaz_datos.CATALOGO),
+    )
 
     interfaz.aplicar_catalogo_local()
 
-    datos = interfaz.CATALOGO["MÁSTER · PREWORK"]["Pseudocódigo"]
+    datos = interfaz_datos.CATALOGO["MÁSTER · PREWORK"]["Pseudocódigo"]
     assert datos["clases"] == 8
     assert datos["tareas"] == 1
     assert interfaz.progreso_modulo(
@@ -343,7 +348,7 @@ def test_registro_de_clase_html_avanza_y_revertir_sesion_restablece_tema():
         app.planificacion,
         "MÁSTER · FRONTEND",
         "HTML",
-        interfaz.CATALOGO["MÁSTER · FRONTEND"]["HTML"],
+        interfaz_datos.CATALOGO["MÁSTER · FRONTEND"]["HTML"],
     )[0][0] == "Tema 2 · clase 2/6"
 
     app._revertir_progreso_sesion(sesion)
