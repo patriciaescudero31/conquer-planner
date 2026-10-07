@@ -2,6 +2,7 @@ import calendar
 import tkinter as tk
 from collections import defaultdict
 from datetime import date
+from tkinter import ttk
 
 
 MESES = (
@@ -15,6 +16,47 @@ TEXT = "#111827"
 MUTED = "#64748b"
 ACCENT = "#0d9488"
 BORDER = "#e2e8f0"
+ACCENT_DARK = "#0f766e"
+
+
+def _boton_calendario(
+    parent,
+    texto,
+    comando,
+    principal=False,
+    fondo=None,
+    color_texto=None,
+    alto=None,
+    wraplength=None,
+):
+    normal = fondo or (ACCENT if principal else CARD)
+    hover = (
+        ACCENT_DARK
+        if principal
+        else "#ccfbf1"
+        if normal == CARD
+        else "#99f6e4"
+    )
+    opciones = {
+        "text": texto,
+        "command": comando,
+        "font": ("Helvetica", 10, "bold"),
+        "fg": color_texto or ("#ffffff" if principal else TEXT),
+        "bg": normal,
+        "activeforeground": "#ffffff" if principal else TEXT,
+        "activebackground": hover,
+        "relief": "flat",
+        "bd": 0,
+        "cursor": "hand2",
+    }
+    if alto is not None:
+        opciones["height"] = alto
+    if wraplength is not None:
+        opciones["wraplength"] = wraplength
+    widget = tk.Button(parent, **opciones)
+    widget.bind("<Enter>", lambda _event: widget.configure(bg=hover))
+    widget.bind("<Leave>", lambda _event: widget.configure(bg=normal))
+    return widget
 
 
 class CalendarioAcademico:
@@ -52,7 +94,11 @@ class CalendarioAcademico:
 
         cabecera = tk.Frame(self.frame, bg=BG)
         cabecera.pack(fill="x", pady=(0, 12))
-        tk.Button(cabecera, text="‹", width=3, command=lambda: self._cambiar_mes(-1)).pack(side="left")
+        _boton_calendario(
+            cabecera,
+            "‹",
+            lambda: self._cambiar_mes(-1),
+        ).pack(side="left")
         self.titulo = tk.Label(
             cabecera,
             font=("Helvetica", 18, "bold"),
@@ -60,13 +106,113 @@ class CalendarioAcademico:
             bg=BG,
         )
         self.titulo.pack(side="left", expand=True)
-        tk.Button(cabecera, text="›", width=3, command=lambda: self._cambiar_mes(1)).pack(side="right")
+        _boton_calendario(
+            cabecera,
+            "›",
+            lambda: self._cambiar_mes(1),
+        ).pack(side="right")
 
         self.grilla = tk.Frame(self.frame, bg=BG)
         self.grilla.pack(fill="x")
         self.detalle = tk.Frame(self.frame, bg=CARD, padx=14, pady=12)
         self.detalle.pack(fill="x", pady=(16, 0))
+        self.agenda_frame = tk.Frame(self.frame, bg=BG)
+        self.agenda_frame.pack(fill="x", pady=(22, 0))
+        self._crear_agenda()
         self._dibujar_mes()
+
+    def _crear_agenda(self):
+        tk.Label(
+            self.agenda_frame,
+            text="Plan completo hasta el objetivo",
+            font=("Helvetica", 18, "bold"),
+            fg=TEXT,
+            bg=BG,
+        ).pack(anchor="w")
+        tareas = [
+            (fecha, asignacion)
+            for fecha, asignaciones in sorted(self.plan.items())
+            for asignacion in asignaciones
+        ]
+        horas_totales = sum(
+            asignacion.get("horas", 0) for _, asignacion in tareas
+        )
+        tk.Label(
+            self.agenda_frame,
+            text=(
+                f"{len(tareas)} actividades · {horas_totales:.1f} h "
+                f"planificadas hasta "
+                f"{self.fecha_objetivo.strftime('%d/%m/%Y') if self.fecha_objetivo else 'el objetivo'}."
+            ),
+            font=("Helvetica", 10),
+            fg=MUTED,
+            bg=BG,
+        ).pack(anchor="w", pady=(3, 10))
+        if not tareas:
+            tk.Label(
+                self.agenda_frame,
+                text="No hay actividades pendientes programadas con la disponibilidad actual.",
+                font=("Helvetica", 10),
+                fg=MUTED,
+                bg=BG,
+            ).pack(anchor="w")
+            return
+        contenedor = tk.Frame(self.agenda_frame, bg=CARD)
+        contenedor.pack(fill="x")
+        columnas = ("fecha", "categoria", "modulo", "actividad", "horas")
+        tabla = ttk.Treeview(
+            contenedor,
+            columns=columnas,
+            show="headings",
+            height=12,
+        )
+        tabla.heading("fecha", text="Fecha")
+        tabla.heading("categoria", text="Área")
+        tabla.heading("modulo", text="Módulo")
+        tabla.heading("actividad", text="Qué hacer")
+        tabla.heading("horas", text="Horas")
+        tabla.column("fecha", width=95, minwidth=90, stretch=False)
+        tabla.column("categoria", width=90, minwidth=80, stretch=False)
+        tabla.column("modulo", width=180, minwidth=140, stretch=False)
+        tabla.column("actividad", width=380, minwidth=180, stretch=True)
+        tabla.column("horas", width=70, minwidth=60, stretch=False, anchor="e")
+        tabla.tag_configure("master", foreground=ACCENT_DARK)
+        tabla.tag_configure("ingles", foreground="#2563eb")
+        tabla.tag_configure("bonus", foreground="#b45309")
+        barra = ttk.Scrollbar(
+            contenedor,
+            orient="vertical",
+            command=tabla.yview,
+        )
+        tabla.configure(yscrollcommand=barra.set)
+        tabla.pack(side="left", fill="both", expand=True)
+        barra.pack(side="right", fill="y")
+        for fecha, asignacion in tareas:
+            try:
+                fecha_texto = date.fromisoformat(fecha).strftime("%a %d/%m")
+            except (TypeError, ValueError):
+                fecha_texto = fecha
+            categoria = asignacion.get("categoria", "")
+            etiqueta = (
+                "Máster"
+                if categoria == "Máster"
+                else "Inglés"
+                if categoria == "Inglés"
+                else "Bonus"
+            )
+            tabla.insert(
+                "",
+                "end",
+                values=(
+                    fecha_texto,
+                    etiqueta,
+                    asignacion.get("modulo", ""),
+                    ", ".join(asignacion.get("detalles", [])),
+                    f"{asignacion.get('horas', 0):.1f} h",
+                ),
+                tags=(etiqueta.casefold(),),
+            )
+        self.agenda_tabla = tabla
 
     def _cambiar_mes(self, cambio):
         indice = self.ano * 12 + self.mes - 1 + cambio
@@ -128,17 +274,14 @@ class CalendarioAcademico:
                     color_fondo = "#ccfbf1"
                 if not en_periodo and fecha != date.today():
                     color_texto = "#cbd5e1"
-                tk.Button(
+                _boton_calendario(
                     self.grilla,
-                    text=texto,
-                    command=lambda dia=fecha: self._seleccionar(dia),
-                    font=("Helvetica", 10, "bold" if fecha == date.today() else "normal"),
-                    fg=color_texto,
-                    bg=color_fondo,
-                    activebackground=ACCENT,
-                    activeforeground="#ffffff",
-                    relief="flat",
-                    height=3,
+                    texto,
+                    lambda dia=fecha: self._seleccionar(dia),
+                    principal=fecha == self.seleccionada,
+                    fondo=color_fondo,
+                    color_texto=color_texto,
+                    alto=3,
                     wraplength=70,
                 ).grid(row=fila, column=columna, sticky="nsew", padx=2, pady=2)
         self._mostrar_detalle()

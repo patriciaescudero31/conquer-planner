@@ -5,7 +5,6 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from pathlib import Path
 from datetime import date, datetime, timedelta
-from pomodoro import Pomodoro
 from calendario import CalendarioAcademico
 from tareas import cargar_tareas, guardar_tareas
 from utilidades import calcular_horas_hasta_objetivo
@@ -237,6 +236,24 @@ def cargar_planificacion():
     )
     datos["porcentaje_ingles"] = round(datos["clases_ingles_completadas"] / 102 * 100, 1)
     return datos
+
+
+def aplicar_disponibilidad_semanal(planificacion, disponibilidad, domingo):
+    if domingo.weekday() != 6:
+        raise ValueError("La disponibilidad solo se actualiza los domingos.")
+    if set(disponibilidad) != set(DIAS_SEMANA):
+        raise ValueError("Debe indicarse la disponibilidad de todos los días.")
+    horas_por_dia = {}
+    for dia in DIAS_SEMANA:
+        horas = float(disponibilidad[dia])
+        if not math.isfinite(horas) or not 0 <= horas <= 24:
+            raise ValueError("Las horas diarias deben estar entre 0 y 24.")
+        horas_por_dia[dia] = horas
+    planificacion["disponibilidad"] = horas_por_dia
+    planificacion["horas_semanales_objetivo"] = round(
+        sum(horas_por_dia.values()), 1
+    )
+    planificacion["ultima_revision_disponibilidad"] = domingo.isoformat()
 
 
 def _numero_no_negativo(valor, defecto):
@@ -541,21 +558,26 @@ def tarjeta(parent, titulo_texto, valor, detalle="", color=TEXT):
 
 
 def boton(parent, texto, comando, principal=False):
-    return tk.Button(
+    normal = ACCENT if principal else CARD
+    hover = ACCENT_DARK if principal else "#f1f5f9"
+    widget = tk.Button(
         parent,
         text=texto,
         command=comando,
         font=("Helvetica", 10, "bold"),
         fg="#ffffff" if principal else TEXT,
-        bg=ACCENT if principal else "#ffffff",
+        bg=normal,
         activeforeground="#ffffff" if principal else TEXT,
-        activebackground=ACCENT_DARK if principal else "#f1f5f9",
+        activebackground=hover,
         relief="flat",
         bd=0,
         padx=12,
         pady=8,
         cursor="hand2",
     )
+    widget.bind("<Enter>", lambda _event: widget.configure(bg=hover))
+    widget.bind("<Leave>", lambda _event: widget.configure(bg=normal))
+    return widget
 
 
 def crear_scroll(parent):
@@ -614,7 +636,22 @@ class ConquerPlanner:
         style.configure("Title.TLabel", background=BG, foreground=TEXT, font=("Helvetica", 28, "bold"))
         style.configure("Subtitle.TLabel", background=BG, foreground=MUTED, font=("Helvetica", 12))
         style.configure("TEntry", padding=7)
-        style.configure("TCombobox", padding=6)
+        style.configure(
+            "TCombobox",
+            padding=7,
+            font=("Helvetica", 10),
+            fieldbackground=CARD,
+            background=CARD,
+            foreground=TEXT,
+            arrowcolor=ACCENT_DARK,
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", CARD), ("disabled", BG)],
+            foreground=[("readonly", TEXT), ("disabled", MUTED)],
+            selectbackground=[("readonly", CARD)],
+            selectforeground=[("readonly", TEXT)],
+        )
         style.configure("Horizontal.TProgressbar", troughcolor="#e2e8f0", background=ACCENT, bordercolor="#e2e8f0", lightcolor=ACCENT, darkcolor=ACCENT)
 
     def _construir_shell(self):
@@ -638,7 +675,6 @@ class ConquerPlanner:
             ("◷", "Planificación", self.mostrar_planificacion),
             ("◉", "Progreso", self.mostrar_progreso),
             ("📅", "Calendario", self.mostrar_calendario),
-            ("⏳", "Pomodoro", self.abrir_pomodoro),
             ("📊", "Estadísticas", self.mostrar_estadisticas),
             ("⚙", "Configuración", self.mostrar_configuracion),
 
@@ -657,6 +693,133 @@ class ConquerPlanner:
         self.main = tk.Frame(self.ventana, bg=BG)
         self.main.pack(side="right", fill="both", expand=True)
         self.contenido = crear_scroll(self.main)
+        self.mostrar_inicio()
+        self.ventana.after_idle(self._revisar_disponibilidad_dominical)
+
+    def _revisar_disponibilidad_dominical(self):
+        hoy = date.today()
+        if hoy.weekday() == 6 and (
+            self.planificacion.get("ultima_revision_disponibilidad")
+            != hoy.isoformat()
+        ):
+            self._preguntar_disponibilidad_dominical(hoy)
+        self._programar_revision_dominical(hoy)
+
+    def _programar_revision_dominical(self, hoy):
+        dias_hasta_domingo = (6 - hoy.weekday()) % 7 or 7
+        proximo_domingo = hoy + timedelta(days=dias_hasta_domingo)
+        proxima_revision = datetime.combine(
+            proximo_domingo,
+            datetime.min.time(),
+        ).replace(hour=9)
+        demora = max(
+            1,
+            int((proxima_revision - datetime.now()).total_seconds() * 1000),
+        )
+        self.ventana.after(
+            demora,
+            self._revisar_disponibilidad_dominical,
+        )
+
+    def _preguntar_disponibilidad_dominical(self, hoy):
+        inicio = hoy + timedelta(days=1)
+        fin = inicio + timedelta(days=6)
+        ventana = tk.Toplevel(self.ventana)
+        ventana.title("Disponibilidad de la próxima semana")
+        ventana.transient(self.ventana)
+        ventana.resizable(False, False)
+        ventana.configure(bg=BG)
+        marco = tk.Frame(
+            ventana,
+            bg=CARD,
+            padx=22,
+            pady=20,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        marco.pack(fill="both", expand=True, padx=16, pady=16)
+        tk.Label(
+            marco,
+            text="¿Cuántas horas tendrás para estudiar?",
+            font=("Helvetica", 17, "bold"),
+            fg=TEXT,
+            bg=CARD,
+        ).pack(anchor="w")
+        tk.Label(
+            marco,
+            text=(
+                f"Disponibilidad del {inicio.strftime('%d/%m')} "
+                f"al {fin.strftime('%d/%m')}. Ajusta cada día y el plan "
+                "se recalculará con este horario."
+            ),
+            font=("Helvetica", 10),
+            fg=MUTED,
+            bg=CARD,
+            wraplength=420,
+            justify="left",
+        ).pack(anchor="w", pady=(5, 14))
+        campos = {}
+        formulario = tk.Frame(marco, bg=CARD)
+        formulario.pack(fill="x")
+        for indice, dia in enumerate(DIAS_SEMANA):
+            fila, columna = divmod(indice, 4)
+            celda = tk.Frame(formulario, bg=CARD)
+            celda.grid(row=fila, column=columna, padx=5, pady=5, sticky="ew")
+            tk.Label(
+                celda,
+                text=dia,
+                font=("Helvetica", 9, "bold"),
+                fg=TEXT,
+                bg=CARD,
+            ).pack(anchor="w")
+            entrada = ttk.Entry(celda, width=8, justify="center")
+            entrada.insert(
+                0,
+                str(self.planificacion["disponibilidad"].get(dia, 0)),
+            )
+            entrada.pack(fill="x", pady=(3, 0))
+            campos[dia] = entrada
+        for columna in range(4):
+            formulario.columnconfigure(columna, weight=1)
+        acciones = tk.Frame(marco, bg=CARD)
+        acciones.pack(fill="x", pady=(14, 0))
+        boton(acciones, "Ahora no", ventana.destroy).pack(side="right", padx=(8, 0))
+        boton(
+            acciones,
+            "Guardar y recalcular",
+            lambda: self._guardar_disponibilidad_dominical(
+                campos,
+                ventana,
+                hoy,
+            ),
+            True,
+        ).pack(side="right")
+        ventana.protocol("WM_DELETE_WINDOW", ventana.destroy)
+        ventana.grab_set()
+        ventana.focus_set()
+
+    def _guardar_disponibilidad_dominical(self, campos, ventana, domingo):
+        try:
+            disponibilidad = {
+                dia: float(entrada.get().strip())
+                for dia, entrada in campos.items()
+            }
+            aplicar_disponibilidad_semanal(
+                self.planificacion,
+                disponibilidad,
+                domingo,
+            )
+        except (TypeError, ValueError, OverflowError):
+            messagebox.showerror(
+                "Disponibilidad",
+                "Introduce entre 0 y 24 horas para cada día.",
+                parent=ventana,
+            )
+            return
+        if not self.guardar():
+            self.planificacion = cargar_planificacion()
+            return
+        ventana.destroy()
         self.mostrar_inicio()
 
     def refrescar(self, funcion=None):
@@ -1291,45 +1454,119 @@ class ConquerPlanner:
             for bloque, contenidos in CATALOGO.items()
             for nombre in contenidos
         ]
-        definiciones = [
-            ("Fecha (AAAA-MM-DD)", "fecha", date.today().isoformat(), "entry"),
-            (
-                "Tipo de actividad",
-                "tipo",
-                ("Clase", "Apuntes", "Clase + apuntes", "Tarea", "Evaluación", "Tutoría", "Clase en directo", "Práctica", "TFM"),
-                "tipo",
-            ),
-            ("Módulo del temario", "modulo", modulos, "modulo"),
-            ("Qué has hecho", "actividad", "", "entry"),
-            ("Horas reales", "horas", "1", "entry"),
-            ("Inicio (opcional)", "inicio", "", "entry"),
-            ("Fin (opcional)", "fin", "", "entry"),
-        ]
-        for i, (etiqueta, clave, valor, tipo_campo) in enumerate(definiciones):
+        def agregar_campo(etiqueta, clave, valor, fila, columna, ancho=0, span=1, tipo="entry"):
             celda = tk.Frame(frame, bg=CARD)
-            celda.grid(row=0, column=i, padx=4, sticky="ew")
-            frame.columnconfigure(i, weight=1)
-            tk.Label(celda, text=etiqueta, font=("Helvetica", 8), fg=MUTED, bg=CARD).pack(anchor="w")
-            if tipo_campo in ("tipo", "modulo"):
+            celda.grid(
+                row=fila,
+                column=columna,
+                columnspan=span,
+                padx=5,
+                pady=5,
+                sticky="ew",
+            )
+            tk.Label(
+                celda,
+                text=etiqueta,
+                font=("Helvetica", 10, "bold"),
+                fg=TEXT,
+                bg=CARD,
+            ).pack(anchor="w", pady=(0, 3))
+            if tipo == "combo":
                 entrada = ttk.Combobox(
                     celda,
                     values=valor,
-                    state="readonly" if tipo_campo == "tipo" else "normal",
+                    state="readonly",
+                    width=ancho,
                 )
-                if tipo_campo == "tipo":
-                    entrada.set("Clase")
             else:
-                entrada = ttk.Entry(celda)
+                entrada = ttk.Entry(celda, width=ancho or 24)
                 entrada.insert(0, valor)
-            entrada.pack(fill="x", pady=(3, 0))
+            entrada.pack(fill="x")
             campos[clave] = entrada
-        campos["modulo"].set("MÁSTER · FRONTEND | HTML")
+            return entrada
+
+        for columna in range(6):
+            frame.columnconfigure(columna, weight=1)
+        tipo = agregar_campo(
+            "Tipo de actividad",
+            "tipo",
+            (
+                "Clase",
+                "Apuntes",
+                "Clase + apuntes",
+                "Tarea",
+                "Evaluación",
+                "Tutoría",
+                "Clase en directo",
+                "Práctica",
+                "TFM",
+            ),
+            0,
+            0,
+            ancho=24,
+            span=3,
+            tipo="combo",
+        )
+        tipo.set("Clase")
+        agregar_campo(
+            "Fecha (AAAA-MM-DD)",
+            "fecha",
+            date.today().isoformat(),
+            0,
+            3,
+            ancho=18,
+            span=3,
+        )
+        modulo = agregar_campo(
+            "Asignatura o módulo",
+            "modulo",
+            modulos,
+            1,
+            0,
+            ancho=64,
+            span=6,
+            tipo="combo",
+        )
+        modulo.set("MÁSTER · FRONTEND | HTML")
+        agregar_campo(
+            "Qué has hecho",
+            "actividad",
+            "",
+            2,
+            0,
+            ancho=44,
+            span=6,
+        )
+        agregar_campo("Horas reales", "horas", "1", 3, 0, ancho=12, span=2)
+        agregar_campo(
+            "Hora de inicio (opcional)",
+            "inicio",
+            "",
+            3,
+            2,
+            ancho=16,
+            span=2,
+        )
+        agregar_campo(
+            "Hora de fin (opcional)",
+            "fin",
+            "",
+            3,
+            4,
+            ancho=16,
+            span=2,
+        )
         campos["tipo"].bind(
             "<<ComboboxSelected>>",
             lambda _evento: self._actualizar_estimacion_sesion(campos),
         )
         self._actualizar_estimacion_sesion(campos)
-        boton(frame, "Registrar sesión y actualizar progreso", lambda: self._guardar_sesion(campos), True).grid(row=1, column=0, columnspan=len(definiciones), sticky="e", pady=(12, 0))
+        boton(
+            frame,
+            "Registrar sesión y actualizar progreso",
+            lambda: self._guardar_sesion(campos),
+            True,
+        ).grid(row=4, column=0, columnspan=6, sticky="e", padx=5, pady=(10, 0))
 
         actividades = self.planificacion.get("actividades_realizadas", [])
         if actividades:
@@ -1724,9 +1961,6 @@ class ConquerPlanner:
             return
         messagebox.showinfo("Guardado", "Configuración actualizada.")
         self.mostrar_inicio()
-
-    def abrir_pomodoro(self):
-        Pomodoro(self.ventana)
 
     def mostrar_calendario(self):
         limpiar(self.contenido)

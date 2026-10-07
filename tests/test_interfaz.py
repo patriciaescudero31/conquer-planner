@@ -3,6 +3,7 @@ import tkinter as tk
 from datetime import date, timedelta
 
 import interfaz
+from calendario import CalendarioAcademico
 from estadisticas import horas_ultima_semana
 from planificador import _trabajo_modulo
 import pytest
@@ -229,3 +230,92 @@ def test_estimacion_de_tfm_usa_el_valor_configurado():
     )
 
     assert trabajos == [("tarea 1/1", 4.5)]
+
+
+def test_disponibilidad_dominical_actualiza_todos_los_dias():
+    planificacion = {}
+    domingo = date(2026, 10, 11)
+    disponibilidad = {
+        "Lunes": 5,
+        "Martes": 4,
+        "Miércoles": 3,
+        "Jueves": 2,
+        "Viernes": 1,
+        "Sábado": 0,
+        "Domingo": 0,
+    }
+
+    interfaz.aplicar_disponibilidad_semanal(
+        planificacion,
+        disponibilidad,
+        domingo,
+    )
+
+    assert planificacion["disponibilidad"] == disponibilidad
+    assert planificacion["horas_semanales_objetivo"] == 15
+    assert planificacion["ultima_revision_disponibilidad"] == "2026-10-11"
+
+
+def test_disponibilidad_dominical_rechaza_datos_invalidos_sin_cambiar_plan():
+    planificacion = {"disponibilidad": {"Lunes": 2}}
+    original = {"disponibilidad": {"Lunes": 2}}
+    disponibilidad = {dia: 1 for dia in interfaz.DIAS_SEMANA}
+    disponibilidad["Sábado"] = 25
+
+    with pytest.raises(ValueError):
+        interfaz.aplicar_disponibilidad_semanal(
+            planificacion,
+            disponibilidad,
+            date(2026, 10, 11),
+        )
+
+    assert planificacion == original
+
+
+def test_calendario_muestra_agenda_completa_hasta_fecha_objetivo():
+    try:
+        ventana = tk.Tk()
+    except tk.TclError as error:
+        pytest.skip(f"Tk no está disponible: {error}")
+    fecha = date.today().replace(day=1)
+    fecha_planificada = date(
+        fecha.year + (fecha.month == 12),
+        fecha.month % 12 + 1,
+        5,
+    )
+    objetivo = date(
+        fecha_planificada.year,
+        fecha_planificada.month,
+        20,
+    )
+    plan = {
+        fecha_planificada.isoformat(): [
+            {
+                "categoria": "Máster",
+                "modulo": "HTML",
+                "horas": 1.5,
+                "detalles": ["Tema 2 · clase 1/6"],
+            },
+        ],
+    }
+
+    try:
+        calendario = CalendarioAcademico(
+            ventana,
+            plan=plan,
+            fecha_objetivo=objetivo,
+        )
+        ventana.update()
+
+        filas = calendario.agenda_tabla.get_children()
+        assert len(filas) == 1
+        assert calendario.agenda_tabla.item(filas[0], "values") == (
+            fecha_planificada.strftime("%a %d/%m"),
+            "Máster",
+            "HTML",
+            "Tema 2 · clase 1/6",
+            "1.5 h",
+        )
+        assert calendario.agenda_tabla.winfo_viewable()
+    finally:
+        ventana.destroy()

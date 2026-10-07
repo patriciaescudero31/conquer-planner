@@ -28,9 +28,9 @@
 - **Tareas:** creación y seguimiento de tareas personales, sin duplicar las actividades del temario.
 - **Temario:** progreso editable por módulo; los cambios se reflejan en la agenda que se genera al volver a Plan de hoy, Planificación o Calendario.
 - **Planificación:** disponibilidad por día, registro y corrección de sesiones, estimaciones, proyección semanal y carga que podría quedar fuera del objetivo.
+- **Planificación semanal:** cada domingo, al abrir la aplicación, puedes revisar las horas disponibles de cada día para la semana siguiente; al guardar se recalcula el calendario.
 - **Progreso:** porcentajes globales, hitos actuales y capacidad frente a horas de máster pendientes.
-- **Calendario:** plan previsto y sesiones reales seleccionables por día y mes.
-- **Pomodoro:** temporizador de concentración independiente.
+- **Calendario:** plan previsto hasta la fecha objetivo en una agenda desplazable, además de sesiones reales seleccionables por día y mes.
 - **Estadísticas:** horas registradas, actividad reciente y distribución del esfuerzo por módulo.
 - **Configuración:** fecha objetivo, horas/progreso globales, inglés y estimaciones específicas por tipo de actividad.
 
