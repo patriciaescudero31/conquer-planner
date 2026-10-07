@@ -72,6 +72,17 @@ Si el entorno virtual ya está creado, también puedes iniciar directamente con:
 .venv/bin/python main.py
 ```
 
+### Abrir desde el Escritorio en macOS
+
+El acceso **Conquer Planner.command** del Escritorio abre automáticamente
+Terminal y desde allí inicia la interfaz gráfica, sin que tengas que abrir
+VS Code. Utiliza `.venv/bin/python` junto a la carpeta del proyecto. Mantén el
+proyecto y su entorno `.venv` en su ubicación actual para que el acceso siga
+funcionando.
+
+La revisión de disponibilidad aparece los domingos a las 09:00 mientras la app
+está abierta, o al iniciar la app ese mismo domingo.
+
 ## Ejecutar tests
 
 ```bash
