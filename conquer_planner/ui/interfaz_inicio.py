@@ -190,10 +190,49 @@ class InicioMixin:
                 justify="left",
             ).pack(anchor="w", pady=8)
 
+        manana = hoy + timedelta(days=1)
+        if manana <= obtener_fecha_objetivo(self.planificacion):
+            asignaciones_manana = plan.get(manana.isoformat(), [])
+            tk.Label(
+                self.contenido,
+                text="Previsión de mañana",
+                font=(FONT_FAMILY, 17, "bold"),
+                fg=TEXT,
+                bg=BG,
+            ).pack(anchor="w", pady=(22, 8))
+            tk.Label(
+                self.contenido,
+                text="Se recalcula automáticamente con el progreso registrado y el trabajo que quede pendiente.",
+                font=(FONT_FAMILY, 10),
+                fg=MUTED,
+                bg=BG,
+                wraplength=850,
+                justify="left",
+            ).pack(anchor="w", pady=(0, 6))
+            if asignaciones_manana:
+                for numero, asignacion in enumerate(asignaciones_manana, start=1):
+                    self._fila_plan(
+                        self.contenido,
+                        str(numero),
+                        asignacion["categoria"],
+                        asignacion["modulo"],
+                        " · ".join(asignacion["detalles"]),
+                        asignacion["horas"],
+                        ACCENT,
+                    )
+            else:
+                tk.Label(
+                    self.contenido,
+                    text="Sin actividades asignadas para mañana.",
+                    font=(FONT_FAMILY, 10),
+                    fg=MUTED,
+                    bg=BG,
+                ).pack(anchor="w")
+
         tk.Label(self.contenido, text="Cómo se prioriza", font=(FONT_FAMILY, 17, "bold"), fg=TEXT, bg=BG).pack(anchor="w", pady=(22, 8))
         tk.Label(
             self.contenido,
-            text="Las tareas manuales pendientes se programan primero, por prioridad Alta → Media → Baja. Cada una usa la estimación por tarea de Configuración; el tiempo restante se dedica al temario. Se mantienen la sesión semanal de Google Antigravity los miércoles, el inglés cuando cabe y los bonus después del contenido obligatorio.",
+            text="Las tareas manuales pendientes se programan primero, por prioridad Alta → Media → Baja. Cada una usa su duración estimada o, si no tiene una, la estimación general de Configuración; el tiempo restante se dedica al temario. La previsión de mañana se recalcula al registrar el progreso. Se mantienen la sesión semanal de Google Antigravity los miércoles, el inglés cuando cabe y los bonus después del contenido obligatorio.",
             font=(FONT_FAMILY, 11),
             fg=MUTED,
             bg=BG,

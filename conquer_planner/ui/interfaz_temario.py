@@ -13,6 +13,27 @@ class TemarioMixin:
         limpiar(self.contenido)
         self.planificacion = cargar_planificacion()
         titulo(self.contenido, "Temario", "Marca aquí lo que realmente has terminado. Los porcentajes se actualizan solos.")
+        self.mostrar_detalles_completados = getattr(
+            self,
+            "mostrar_detalles_completados",
+            False,
+        )
+        ver_completados = tk.BooleanVar(
+            value=self.mostrar_detalles_completados
+        )
+        tk.Checkbutton(
+            self.contenido,
+            text="Mostrar todo el contenido de las secciones completadas",
+            variable=ver_completados,
+            command=lambda: self._cambiar_visibilidad_completados(
+                ver_completados
+            ),
+            font=(FONT_FAMILY, 10),
+            fg=TEXT,
+            bg=BG,
+            activebackground=BG,
+            selectcolor=CARD,
+        ).pack(anchor="w", pady=(0, 10))
 
         clases_ingles = self.planificacion["clases_ingles_completadas"]
         clases_antigravity = _entero_no_negativo(
@@ -61,6 +82,8 @@ class TemarioMixin:
         top.pack(fill="x")
         tk.Label(top, text=nombre, font=(FONT_FAMILY, 12, "bold"), fg=TEXT, bg=CARD).pack(side="left")
         tk.Label(top, text=f"{estado} · {progreso:.0f}%", font=(FONT_FAMILY, 9, "bold"), fg=color, bg=CARD).pack(side="right")
+        if estado == "Completado" and not self.mostrar_detalles_completados:
+            return
         tk.Label(frame, text=f"{datos.get('clases', 0)} clases · {datos.get('tareas', 0)} tareas · {datos.get('evaluaciones', 0)} evaluaciones", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 7))
         if nombre == "Google Antigravity":
             apuntes = self.planificacion["detalle_modulo"]["Google Antigravity"]["apuntes"]
@@ -235,6 +258,7 @@ class TemarioMixin:
                     parent=ventana,
                 )
                 return
+            aplicar_catalogo_local()
             ventana.destroy()
             self.mostrar_temario()
 
@@ -242,6 +266,10 @@ class TemarioMixin:
             anchor="e",
             pady=(16, 0),
         )
+
+    def _cambiar_visibilidad_completados(self, variable):
+        self.mostrar_detalles_completados = variable.get()
+        self.mostrar_temario()
 
     def _guardar_modulo(self, clave, entradas, datos):
         valores = {}

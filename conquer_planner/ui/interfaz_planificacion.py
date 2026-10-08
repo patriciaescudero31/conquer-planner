@@ -7,7 +7,11 @@ from .interfaz_componentes import *
 from .interfaz_datos import *
 from .interfaz_datos import _entero_no_negativo
 from ..core.tareas import cargar_tareas
-from ..core.planificador import calcular_carga_pendiente, generar_planificacion
+from ..core.planificador import (
+    calcular_carga_pendiente,
+    estimar_horas_tarea,
+    generar_planificacion,
+)
 
 
 class PlanificacionMixin:
@@ -62,9 +66,9 @@ class PlanificacionMixin:
         tareas_pendientes = [
             tarea for tarea in tareas if not tarea.get("completada")
         ]
-        carga_proyectada += (
-            len(tareas_pendientes)
-            * self.planificacion["estimaciones"]["tarea"]
+        carga_proyectada += sum(
+            estimar_horas_tarea(tarea, self.planificacion)
+            for tarea in tareas_pendientes
         )
         calendario_proyectado = generar_planificacion(
             CATALOGO,
@@ -489,7 +493,7 @@ class PlanificacionMixin:
             )
             asignaciones = calendario.get(fecha.isoformat(), [])
             plan_texto = " · ".join(
-                f"{asignacion['horas']:.0f} h {asignacion['modulo']}: "
+                f"{asignacion['horas']:.1f} h {asignacion['modulo']}: "
                 f"{', '.join(asignacion['detalles'])}"
                 for asignacion in asignaciones
             )

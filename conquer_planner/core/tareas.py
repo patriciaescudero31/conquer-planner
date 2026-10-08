@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import datetime
 
 from .copias_seguridad import (
@@ -111,15 +112,20 @@ def cargar_tareas(archivo_tareas):
         ):
             completada = False
 
-        tareas.append(
-            {
-                "nombre": nombre,
-                "fecha_limite": fecha_limite,
-                "prioridad": prioridad,
-                "categoria": categoria,
-                "completada": completada,
-            }
-        )
+        tarea_normalizada = {
+            "nombre": nombre,
+            "fecha_limite": fecha_limite,
+            "prioridad": prioridad,
+            "categoria": categoria,
+            "completada": completada,
+        }
+        try:
+            horas = float(str(tarea.get("horas", "")).replace(",", "."))
+        except (TypeError, ValueError, OverflowError):
+            horas = 0
+        if math.isfinite(horas) and horas > 0:
+            tarea_normalizada["horas"] = horas
+        tareas.append(tarea_normalizada)
 
     return tareas
 

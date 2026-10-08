@@ -20,7 +20,7 @@ class TareasMixin:
 
         form = tk.Frame(self.contenido, bg=CARD, highlightbackground=BORDER, highlightthickness=1, padx=18, pady=18)
         form.pack(fill="x", pady=(0, 16))
-        tk.Label(form, text="Nueva tarea personal", font=(FONT_FAMILY, 16, "bold"), fg=TEXT, bg=CARD).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 12))
+        tk.Label(form, text="Nueva tarea personal", font=(FONT_FAMILY, 16, "bold"), fg=TEXT, bg=CARD).grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 12))
         nombre = ttk.Entry(form)
         nombre.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(0, 8))
         nombre.insert(0, "")
@@ -30,10 +30,14 @@ class TareasMixin:
         prioridad = ttk.Combobox(form, values=("Alta", "Media", "Baja"), state="readonly", width=10)
         prioridad.set("Media")
         prioridad.grid(row=1, column=3, padx=(8, 0))
+        horas = ttk.Entry(form, width=8)
+        horas.insert(0, str(cargar_planificacion()["estimaciones"]["tarea"]))
+        horas.grid(row=1, column=4, padx=(8, 0))
         tk.Label(form, text="Tarea", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).grid(row=2, column=0, sticky="w", pady=(4, 0))
         tk.Label(form, text="Categoría", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).grid(row=2, column=2, sticky="w", padx=8, pady=(4, 0))
-        boton(form, "Añadir", lambda: self._crear_tarea(nombre, categoria, prioridad), True).grid(row=1, column=4, padx=(12, 0))
-        for c in range(3):
+        tk.Label(form, text="Duración (h; admite 0,5)", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).grid(row=2, column=4, sticky="w", padx=8, pady=(4, 0))
+        boton(form, "Añadir", lambda: self._crear_tarea(nombre, categoria, prioridad, horas), True).grid(row=1, column=5, padx=(12, 0))
+        for c in range(5):
             form.columnconfigure(c, weight=1)
 
         pendientes = [t for t in tareas if not t.get("completada")]
@@ -60,10 +64,13 @@ class TareasMixin:
             resultado.append(tarea)
         return resultado
 
-    def _crear_tarea(self, nombre, categoria, prioridad):
+    def _crear_tarea(self, nombre, categoria, prioridad, horas):
         texto = nombre.get().strip()
         if not texto:
             messagebox.showerror("Tarea", "Escribe una tarea.")
+            return
+        duracion = self._leer_duracion(horas)
+        if duracion is None:
             return
         tareas = cargar_tareas(ARCHIVO_TAREAS)
         tareas = self._limpiar_duplicados_tareas(tareas)
@@ -80,7 +87,7 @@ class TareasMixin:
                 "Tarea", "Ya existe una tarea con ese nombre y categoría."
             )
             return
-        tareas.append({"nombre": texto, "fecha_limite": "", "prioridad": prioridad.get(), "categoria": categoria_texto, "completada": False, "tipo": "Manual"})
+        tareas.append({"nombre": texto, "fecha_limite": "", "prioridad": prioridad.get(), "categoria": categoria_texto, "completada": False, "tipo": "Manual", "horas": duracion})
         if not self._guardar_tareas(tareas):
             return
         self.mostrar_tareas()
@@ -101,7 +108,13 @@ class TareasMixin:
         centro = tk.Frame(frame, bg=CARD)
         centro.pack(side="left", fill="x", expand=True)
         tk.Label(centro, text=f"{estado}  {tarea.get('nombre', '')}", font=(FONT_FAMILY, 12, "bold"), fg=color, bg=CARD, anchor="w").pack(anchor="w")
-        tk.Label(centro, text=f"{tarea.get('categoria', 'General')} · prioridad {tarea.get('prioridad', 'Media')}", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 0))
+        duracion = tarea.get("horas")
+        detalle_duracion = (
+            f"{float(duracion):g} h estimadas"
+            if duracion is not None
+            else "duración según la estimación general"
+        )
+        tk.Label(centro, text=f"{tarea.get('categoria', 'General')} · prioridad {tarea.get('prioridad', 'Media')} · {detalle_duracion}", font=(FONT_FAMILY, 9), fg=MUTED, bg=CARD).pack(anchor="w", pady=(3, 0))
         if not tarea.get("completada"):
             boton(frame, "Completar", lambda i=indice: self._completar_tarea(i), True).pack(side="right", padx=3)
         boton(frame, "Editar", lambda i=indice: self._editar_tarea(i)).pack(side="right", padx=3)
@@ -132,7 +145,7 @@ class TareasMixin:
         tarea = tareas[indice]
         ventana = tk.Toplevel(self.ventana)
         ventana.title("Editar tarea")
-        ventana.geometry("520x300")
+        ventana.geometry("520x390")
         ventana.configure(bg=BG)
         marco = tk.Frame(ventana, bg=CARD, padx=22, pady=22, highlightbackground=BORDER, highlightthickness=1)
         marco.pack(fill="both", expand=True, padx=18, pady=18)
@@ -146,9 +159,30 @@ class TareasMixin:
         prioridad = ttk.Combobox(marco, values=("Alta", "Media", "Baja"), state="readonly")
         prioridad.set(tarea.get("prioridad", "Media"))
         prioridad.pack(anchor="w", pady=4)
+        tk.Label(
+            marco,
+            text="Duración estimada (horas; admite 0,5)",
+            font=(FONT_FAMILY, 10, "bold"),
+            fg=TEXT,
+            bg=CARD,
+        ).pack(anchor="w", pady=(8, 2))
+        horas = ttk.Entry(marco)
+        horas.insert(
+            0,
+            str(
+                tarea.get(
+                    "horas",
+                    cargar_planificacion()["estimaciones"]["tarea"],
+                )
+            ),
+        )
+        horas.pack(fill="x")
 
         def guardar():
-            tarea.update({"nombre": nombre.get().strip(), "categoria": categoria.get().strip() or "General", "prioridad": prioridad.get()})
+            duracion = self._leer_duracion(horas, ventana)
+            if duracion is None:
+                return
+            tarea.update({"nombre": nombre.get().strip(), "categoria": categoria.get().strip() or "General", "prioridad": prioridad.get(), "horas": duracion})
             if not tarea["nombre"]:
                 messagebox.showerror("Tarea", "El nombre no puede estar vacío.", parent=ventana)
                 return
@@ -158,3 +192,17 @@ class TareasMixin:
             self.mostrar_tareas()
 
         boton(marco, "Guardar cambios", guardar, True).pack(anchor="w", pady=(12, 0))
+
+    def _leer_duracion(self, entrada, parent=None):
+        try:
+            duracion = float(entrada.get().strip().replace(",", "."))
+            if not math.isfinite(duracion) or duracion <= 0:
+                raise ValueError
+        except (ValueError, OverflowError):
+            messagebox.showerror(
+                "Duración",
+                "Introduce una duración mayor que 0 horas (por ejemplo, 0,5).",
+                parent=parent or self.ventana,
+            )
+            return None
+        return duracion

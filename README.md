@@ -19,6 +19,7 @@
 - Cálculo automático de capacidad hasta el objetivo, horas pendientes y ritmo semanal.
 - Cálculo de horas de máster restantes y margen.
 - Gestión manual de tareas: las pendientes se integran en la agenda diaria por prioridad Alta → Media → Baja, usando la estimación por tarea configurada.
+- Cada tarea personal admite una duración estimada propia, incluidas medias horas; las tareas existentes sin duración mantienen la estimación general.
 - Copias de seguridad automáticas de planificación, tareas y temario antes de cada guardado; conserva las 30 últimas y permite restaurarlas desde Configuración.
 - Configuración editable sin abrir VS Code.
 - Interfaz de fondo gris claro, navegación carbón, tarjetas blancas, turquesa accesible y tipografía Avenir Next uniforme.
@@ -26,9 +27,9 @@
 ## Qué ofrece cada sección
 
 - **Inicio:** viabilidad hacia la fecha objetivo, ritmo semanal, carga pendiente y siguiente acción recomendada.
-- **Plan de hoy:** agenda de tareas pendientes por prioridad, seguida del temario que cabe en las horas disponibles.
+- **Plan de hoy:** agenda de tareas pendientes por prioridad, seguida del temario que cabe en las horas disponibles, con una previsión de mañana que se recalcula a partir del progreso y las horas registradas.
 - **Tareas:** creación y seguimiento de tareas personales; al completar o cambiar prioridad, la planificación se actualiza sin duplicar actividades del temario.
-- **Temario:** totales y progreso editables por módulo; los cambios se guardan localmente y se reflejan en Plan de hoy, Planificación y Calendario.
+- **Temario:** totales y progreso editables por módulo; los cambios se guardan localmente y se reflejan en Plan de hoy, Planificación y Calendario. Puedes ocultar o mostrar el detalle de las secciones completadas.
 - **Planificación:** disponibilidad por día, registro y corrección de sesiones, estimaciones, proyección semanal y carga que podría quedar fuera del objetivo.
 - **Planificación semanal:** cada domingo, al abrir la aplicación, puedes revisar las horas disponibles de cada día para la semana siguiente; al guardar se recalcula el calendario.
 - **Progreso:** porcentajes globales, hitos actuales y capacidad frente a horas de máster pendientes.

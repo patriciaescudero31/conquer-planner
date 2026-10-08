@@ -118,6 +118,17 @@ def test_guardar_tareas_y_volver_a_cargarlas(tmp_path):
 
     assert tareas_cargadas == tareas_originales
 
+
+def test_cargar_tarea_conserva_duracion_de_media_hora(tmp_path):
+    archivo = tmp_path / "tareas.json"
+    archivo.write_text(
+        json.dumps([{"nombre": "Repasar", "horas": 0.5}]),
+        encoding="utf-8",
+    )
+
+    assert cargar_tareas(archivo)[0]["horas"] == 0.5
+
+
 def test_guardar_tareas_muestra_error_si_no_puede_guardar(
     tmp_path,
     capsys,

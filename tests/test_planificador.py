@@ -272,6 +272,21 @@ def test_planifica_tareas_manuales_por_prioridad_y_omite_completadas():
     ]
 
 
+def test_tarea_con_duracion_personalizada_de_media_hora():
+    calendario = generar_planificacion(
+        {},
+        {
+            "fecha_objetivo": "08/10/2026",
+            "disponibilidad": {"Jueves": 0.5},
+            "estimaciones": {"tarea": 1},
+        },
+        date(2026, 10, 8),
+        [{"nombre": "Repasar", "prioridad": "Alta", "horas": 0.5}],
+    )
+
+    assert calendario["2026-10-08"][0]["horas"] == 0.5
+
+
 def test_tareas_ocupan_primero_el_dia_y_el_tiempo_restante_se_asigna_al_temario():
     catalogo = {
         "MÁSTER · FRONTEND": {
@@ -297,3 +312,38 @@ def test_tareas_ocupan_primero_el_dia_y_el_tiempo_restante_se_asigna_al_temario(
         "HTML",
     ]
     assert sum(item["horas"] for item in calendario["2026-10-08"]) == 2
+
+
+def test_plan_del_dia_siguiente_refleja_avance_o_trabajo_no_completado():
+    catalogo = {
+        "MÁSTER · PREWORK": {
+            "Pseudocódigo": {"clases": 2, "tareas": 0, "evaluaciones": 0},
+        },
+    }
+    base = {
+        "fecha_objetivo": "08/10/2026",
+        "disponibilidad": {"Miércoles": 1, "Jueves": 1},
+        "estimaciones": {"clase": 1},
+        "progreso_tema": {},
+    }
+    fecha_inicio = date(2026, 10, 7)
+
+    plan_sin_avance = generar_planificacion(
+        catalogo,
+        {**base, "horas_realizadas": {"2026-10-07": 1}},
+        fecha_inicio,
+    )
+    assert plan_sin_avance["2026-10-08"][0]["detalles"] == ["clase 1/2"]
+
+    plan_con_avance = generar_planificacion(
+        catalogo,
+        {
+            **base,
+            "horas_realizadas": {"2026-10-07": 1},
+            "progreso_tema": {
+                "MÁSTER · PREWORK|Pseudocódigo": {"clases": 1}
+            },
+        },
+        fecha_inicio,
+    )
+    assert plan_con_avance["2026-10-08"][0]["detalles"] == ["clase 2/2"]

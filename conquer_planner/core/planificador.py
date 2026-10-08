@@ -248,6 +248,7 @@ def _cola_tareas(tareas, planificacion):
         if prioridad not in prioridades:
             prioridad = "Media"
         categoria = str(tarea.get("categoria", "General")).strip() or "General"
+        horas = estimar_horas_tarea(tarea, planificacion)
         pendientes.append(
             (
                 prioridades[prioridad],
@@ -257,12 +258,22 @@ def _cola_tareas(tareas, planificacion):
                     "bloque": "Tareas personales",
                     "modulo": nombre,
                     "detalle": f"Prioridad {prioridad} · {categoria}",
-                    "horas": _horas_estimadas(planificacion, "tarea"),
+                    "horas": horas,
                 },
             )
         )
     pendientes.sort(key=lambda item: (item[0], item[1]))
     return [trabajo for _, _, trabajo in pendientes]
+
+
+def estimar_horas_tarea(tarea, planificacion):
+    try:
+        horas = float(str(tarea.get("horas", "")).replace(",", "."))
+    except (TypeError, ValueError, OverflowError):
+        horas = 0.0
+    if not math.isfinite(horas) or horas <= 0:
+        horas = _horas_estimadas(planificacion, "tarea")
+    return horas
 
 
 def horas_registradas_por_fecha(planificacion):
